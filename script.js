@@ -10,6 +10,8 @@ const hud = {
 };
 
 const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlay-title');
+const overlayDescription = document.getElementById('overlay-description');
 const pauseOverlay = document.getElementById('pause');
 const startButton = document.getElementById('start-button');
 const resumeButton = document.getElementById('resume-button');
@@ -21,22 +23,64 @@ const state = {
   lastTime: 0,
   width: canvas.clientWidth,
   height: canvas.clientHeight,
+  waveIndex: 0,
+  waveDelayUntil: null,
 };
 
 const player = {
   x: 0,
   y: 0,
-  speed: 220,
+  speed: 240,
   health: 100,
   armor: 0,
   weapon: 'Revolver',
   ammo: Infinity,
+  radius: 14,
 };
 
 const input = {
   keys: new Set(),
   mouse: { x: 0, y: 0 },
+  shooting: false,
 };
+
+const bullets = [];
+const enemies = [];
+
+const weapons = {
+  Revolver: {
+    fireRate: 4, // shots per second
+    speed: 620,
+    damage: 28,
+    color: '#ffd166',
+  },
+};
+
+const enemyTypes = {
+  Kamikaze: {
+    radius: 14,
+    speed: 140,
+    damage: 25,
+    health: 35,
+    color: '#f25f5c',
+  },
+  Kleer: {
+    radius: 16,
+    speed: 120,
+    damage: 32,
+    health: 60,
+    color: '#c9d1d9',
+  },
+};
+
+const waves = [
+  { type: 'Kamikaze', count: 6 },
+  { type: 'Kamikaze', count: 10 },
+  { type: 'Kleer', count: 4 },
+  { type: 'Kleer', count: 6, bonus: { type: 'Kamikaze', count: 6 } },
+];
+
+let lastShotTime = 0;
 
 function resizeCanvas() {
   const { clientWidth, clientHeight } = canvas;
@@ -61,10 +105,10 @@ function updateHud() {
   hud.armor.textContent = player.armor.toFixed(0);
   hud.weapon.textContent = player.weapon;
   hud.ammo.textContent = player.ammo === Infinity ? '∞' : player.ammo;
-  hud.wave.textContent = '0 / 0';
+  hud.wave.textContent = `${state.waveIndex + 1} / ${waves.length}`;
 }
 
-function handleInput(delta) {
+function handleInput(delta, timestamp) {
   let dx = 0;
   let dy = 0;
 
@@ -83,6 +127,10 @@ function handleInput(delta) {
 
   player.x = Math.max(24, Math.min(state.width - 24, player.x));
   player.y = Math.max(24, Math.min(state.height - 24, player.y));
+
+  if (input.shooting) {
+    tryShoot(timestamp);
+  }
 }
 
 function drawCrosshair() {
@@ -113,6 +161,78 @@ function drawPlayer() {
   ctx.restore();
 }
 
+function tryShoot(timestamp) {
+  const weapon = weapons[player.weapon];
+  if (!weapon) return;
+
+  const interval = 1000 / weapon.fireRate;
+  if (timestamp - lastShotTime < interval) return;
+  lastShotTime = timestamp;
+
+  const dirX = input.mouse.x - player.x;
+  const dirY = input.mouse.y - player.y;
+  const length = Math.hypot(dirX, dirY) || 1;
+  const nx = dirX / length;
+  const ny = dirY / length;
+
+  bullets.push({
+    x: player.x + nx * (player.radius + 6),
+    y: player.y + ny * (player.radius + 6),
+    vx: nx * weapon.speed,
+    vy: ny * weapon.speed,
+    life: 1.6,
+    color: weapon.color,
+    damage: weapon.damage,
+  });
+}
+
+function spawnEnemy(type) {
+  const definition = enemyTypes[type];
+  if (!definition) return;
+
+  const edge = Math.floor(Math.random() * 4);
+  let x = 0;
+  let y = 0;
+
+  if (edge === 0) {
+    x = Math.random() * state.width;
+    y = -definition.radius * 2;
+  } else if (edge === 1) {
+    x = state.width + definition.radius * 2;
+    y = Math.random() * state.height;
+  } else if (edge === 2) {
+    x = Math.random() * state.width;
+    y = state.height + definition.radius * 2;
+  } else {
+    x = -definition.radius * 2;
+    y = Math.random() * state.height;
+  }
+
+  enemies.push({
+    type,
+    x,
+    y,
+    radius: definition.radius,
+    speed: definition.speed,
+    damage: definition.damage,
+    health: definition.health,
+    color: definition.color,
+  });
+}
+
+function spawnWave(index) {
+  const wave = waves[index];
+  if (!wave) return;
+  for (let i = 0; i < wave.count; i += 1) {
+    spawnEnemy(wave.type);
+  }
+  if (wave.bonus) {
+    for (let i = 0; i < wave.bonus.count; i += 1) {
+      spawnEnemy(wave.bonus.type);
+    }
+  }
+}
+
 function drawBackdrop(delta) {
   const gradient = ctx.createLinearGradient(0, 0, 0, state.height);
   gradient.addColorStop(0, '#0b1018');
@@ -137,29 +257,169 @@ function drawBackdrop(delta) {
   }
 }
 
+function drawBullets(delta) {
+  ctx.save();
+  bullets.forEach((bullet) => {
+    ctx.fillStyle = bullet.color;
+    ctx.beginPath();
+    ctx.arc(bullet.x, bullet.y, 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.restore();
+}
+
+function drawEnemies() {
+  enemies.forEach((enemy) => {
+    ctx.save();
+    ctx.translate(enemy.x, enemy.y);
+    ctx.fillStyle = enemy.color;
+    ctx.beginPath();
+    ctx.arc(0, 0, enemy.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Health ring
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.lineWidth = 2;
+    const healthRatio = Math.max(0, enemy.health) / enemyTypes[enemy.type].health;
+    ctx.beginPath();
+    ctx.arc(0, 0, enemy.radius + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * healthRatio);
+    ctx.stroke();
+    ctx.restore();
+  });
+}
+
 function render(delta) {
   resizeCanvas();
   drawBackdrop(delta);
   drawPlayer();
+  drawBullets(delta);
+  drawEnemies();
   drawCrosshair();
+}
+
+function damagePlayer(amount) {
+  player.health -= amount;
+  updateHud();
+  if (player.health <= 0) {
+    endRun(false);
+  }
+}
+
+function updateBullets(delta) {
+  for (let i = bullets.length - 1; i >= 0; i -= 1) {
+    const bullet = bullets[i];
+    bullet.x += bullet.vx * delta;
+    bullet.y += bullet.vy * delta;
+    bullet.life -= delta;
+
+    if (
+      bullet.life <= 0 ||
+      bullet.x < -20 ||
+      bullet.x > state.width + 20 ||
+      bullet.y < -20 ||
+      bullet.y > state.height + 20
+    ) {
+      bullets.splice(i, 1);
+      continue;
+    }
+
+    for (let j = enemies.length - 1; j >= 0; j -= 1) {
+      const enemy = enemies[j];
+      const dist = Math.hypot(enemy.x - bullet.x, enemy.y - bullet.y);
+      if (dist <= enemy.radius) {
+        enemy.health -= bullet.damage;
+        bullets.splice(i, 1);
+        if (enemy.health <= 0) {
+          enemies.splice(j, 1);
+        }
+        break;
+      }
+    }
+  }
+}
+
+function updateEnemies(delta) {
+  for (let i = enemies.length - 1; i >= 0; i -= 1) {
+    const enemy = enemies[i];
+    const dirX = player.x - enemy.x;
+    const dirY = player.y - enemy.y;
+    const dist = Math.hypot(dirX, dirY) || 1;
+    const nx = dirX / dist;
+    const ny = dirY / dist;
+
+    enemy.x += nx * enemy.speed * delta;
+    enemy.y += ny * enemy.speed * delta;
+
+    if (dist <= enemy.radius + player.radius) {
+      damagePlayer(enemy.damage);
+      enemies.splice(i, 1);
+    }
+  }
+
+  if (enemies.length === 0 && !state.waveDelayUntil) {
+    if (state.waveIndex < waves.length - 1) {
+      state.waveDelayUntil = performance.now() + 1200;
+    } else {
+      endRun(true);
+    }
+  }
+}
+
+function endRun(victory) {
+  state.running = false;
+  state.paused = false;
+  overlayTitle.textContent = victory ? 'Victory!' : 'Garo has fallen';
+  overlayDescription.textContent = victory
+    ? 'You cleared all prototype waves. Continue the fight soon.'
+    : 'Enemies overwhelmed Garo. Try again to push further.';
+  startButton.textContent = 'Restart';
+  overlay.classList.add('visible');
 }
 
 function loop(timestamp) {
   if (!state.running || state.paused) return;
   const delta = (timestamp - state.lastTime) / 1000;
   state.lastTime = timestamp;
-  handleInput(delta);
+
+  if (state.waveDelayUntil && timestamp >= state.waveDelayUntil) {
+    state.waveDelayUntil = null;
+    state.waveIndex += 1;
+    if (state.waveIndex < waves.length) {
+      spawnWave(state.waveIndex);
+      updateHud();
+    }
+  }
+
+  handleInput(delta, timestamp);
+  updateBullets(delta);
+  updateEnemies(delta);
   render(delta);
   requestAnimationFrame(loop);
 }
 
 function startGame() {
   state.running = true;
+  state.paused = false;
   state.lastTime = performance.now();
+  state.waveIndex = 0;
+  state.waveDelayUntil = null;
+  bullets.length = 0;
+  enemies.length = 0;
+  lastShotTime = 0;
   overlay.classList.remove('visible');
   pauseOverlay.classList.remove('visible');
+  overlayTitle.textContent = "Garo's First Encounter";
+  overlayDescription.textContent = 'Browser-based 2D pseudo-3D shooter prototype.';
+  startButton.textContent = 'Start';
+  player.health = 100;
+  player.armor = 0;
   player.x = state.width / 2;
   player.y = state.height * 0.65;
+  spawnWave(state.waveIndex);
   updateHud();
   requestAnimationFrame(loop);
 }
@@ -209,8 +469,21 @@ window.addEventListener('mousemove', (event) => {
   input.mouse.y = y;
 });
 
+window.addEventListener('mousedown', (event) => {
+  if (event.button === 0) {
+    input.shooting = true;
+  }
+});
+
+window.addEventListener('mouseup', (event) => {
+  if (event.button === 0) {
+    input.shooting = false;
+  }
+});
+
 window.addEventListener('blur', () => {
   input.keys.clear();
+  input.shooting = false;
   if (state.running) pauseGame();
 });
 
