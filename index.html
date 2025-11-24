@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Very Global and Serious Game Ever Garo</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main id="game-root">
+    <canvas id="game-canvas" aria-label="Game canvas" role="presentation"></canvas>
+    <section id="hud">
+      <div class="hud-bar">
+        <div class="hud-group">
+          <span class="label">Health</span>
+          <span id="hud-health" class="value">100</span>
+        </div>
+        <div class="hud-group">
+          <span class="label">Armor</span>
+          <span id="hud-armor" class="value">0</span>
+        </div>
+        <div class="hud-group">
+          <span class="label">Weapon</span>
+          <span id="hud-weapon" class="value">Revolver</span>
+        </div>
+        <div class="hud-group">
+          <span class="label">Ammo</span>
+          <span id="hud-ammo" class="value">∞</span>
+        </div>
+        <div class="hud-group">
+          <span class="label">Wave</span>
+          <span id="hud-wave" class="value">0 / 0</span>
+        </div>
+      </div>
+    </section>
+    <section id="overlay" class="overlay visible">
+      <div class="panel">
+        <h1 id="overlay-title">Garo's First Encounter</h1>
+        <p id="overlay-description">Browser-based 2D pseudo-3D shooter prototype.</p>
+        <button id="start-button" type="button">Start</button>
+        <button id="fullscreen-button" type="button">Toggle Fullscreen</button>
+        <p class="hint">WASD to move · Mouse to aim · Left click to fire (explosions hurt) · 1-6 to switch weapons · ESC to pause</p>
+      </div>
+    </section>
+    <section id="pause" class="overlay">
+      <div class="panel">
+        <h2>Paused</h2>
+        <button id="resume-button" type="button">Resume</button>
+      </div>
+    </section>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
