@@ -39,6 +39,7 @@ const player = {
     Shotgun: 16,
     'Tommy Gun': 120,
     'Rocket Launcher': 6,
+    'Laser Gun': 80,
   },
   radius: 14,
 };
@@ -94,6 +95,15 @@ const weapons = {
     explosionRadius: 72,
     selfDamage: 0.5,
   },
+  'Laser Gun': {
+    fireRate: 7,
+    speed: 880,
+    damage: 16,
+    color: '#7ce7ff',
+    ammoKey: 'Laser Gun',
+    pellets: 2,
+    spread: 0.06,
+  },
 };
 
 const enemyTypes = {
@@ -127,6 +137,15 @@ const enemyTypes = {
     health: 140,
     color: '#f59e0b',
   },
+  Harpy: {
+    radius: 14,
+    speed: 170,
+    damage: 18,
+    health: 70,
+    color: '#f9a8d4',
+    fireRate: 1.8,
+    projectileSpeed: 420,
+  },
 };
 
 const waves = [
@@ -136,6 +155,7 @@ const waves = [
   { type: 'Kleer', count: 7, bonus: { type: 'Kamikaze', count: 8 } },
   { type: 'BioMech', count: 3, bonus: { type: 'Kamikaze', count: 8 } },
   { type: 'Werebull', count: 4, bonus: { type: 'Kamikaze', count: 6 } },
+  { type: 'Harpy', count: 8, bonus: { type: 'Kleer', count: 6 } },
 ];
 
 const pickupTypes = {
@@ -178,6 +198,14 @@ const pickupTypes = {
       player.ammoPools['Rocket Launcher'] = Math.min(12, player.ammoPools['Rocket Launcher'] + 3);
     },
     label: 'Rockets',
+  },
+  cells: {
+    radius: 14,
+    color: '#7ce7ff',
+    apply: () => {
+      player.ammoPools['Laser Gun'] = Math.min(160, player.ammoPools['Laser Gun'] + 24);
+    },
+    label: 'Cells',
   },
 };
 
@@ -338,6 +366,7 @@ function spawnEnemy(type) {
     health: definition.health,
     color: definition.color,
     lastShot: 0,
+    nextDive: performance.now() + 1200 + Math.random() * 1400,
   });
 }
 
@@ -636,6 +665,44 @@ function updateEnemies(delta) {
 
       enemy.x += nx * enemy.speed * chargeMultiplier * delta;
       enemy.y += ny * enemy.speed * chargeMultiplier * delta;
+    } else if (enemy.type === 'Harpy') {
+      const dirX = player.x - enemy.x;
+      const dirY = player.y - enemy.y;
+      const dist = distToPlayer;
+      const nx = dirX / dist;
+      const ny = dirY / dist;
+      const preferredRange = 220;
+      if (dist > preferredRange + 20) {
+        enemy.x += nx * enemy.speed * delta;
+        enemy.y += ny * enemy.speed * delta;
+      } else if (dist < preferredRange - 50) {
+        enemy.x -= nx * enemy.speed * 0.9 * delta;
+        enemy.y -= ny * enemy.speed * 0.9 * delta;
+      } else {
+        enemy.x += -ny * enemy.speed * 0.7 * delta;
+        enemy.y += nx * enemy.speed * 0.7 * delta;
+      }
+
+      const now = performance.now();
+      const fireInterval = 1000 / enemyTypes.Harpy.fireRate;
+      if (now - enemy.lastShot > fireInterval) {
+        const projSpeed = enemyTypes.Harpy.projectileSpeed;
+        enemyProjectiles.push({
+          x: enemy.x,
+          y: enemy.y,
+          vx: nx * projSpeed,
+          vy: ny * projSpeed,
+          radius: 5,
+          damage: enemy.damage,
+        });
+        enemy.lastShot = now;
+      }
+
+      if (now >= enemy.nextDive && dist < 200) {
+        enemy.x += nx * enemy.speed * 1.4 * delta;
+        enemy.y += ny * enemy.speed * 1.4 * delta;
+        enemy.nextDive = now + 2000 + Math.random() * 1800;
+      }
     } else {
       const dirX = player.x - enemy.x;
       const dirY = player.y - enemy.y;
@@ -685,6 +752,7 @@ function spawnIntermissionPickups() {
   spawnPickup('shells');
   spawnPickup('smg');
   spawnPickup('rockets');
+  spawnPickup('cells');
   if (Math.random() > 0.4) {
     spawnPickup('armor');
   }
@@ -750,10 +818,12 @@ function startGame() {
   player.ammoPools.Shotgun = 16;
   player.ammoPools['Tommy Gun'] = 120;
   player.ammoPools['Rocket Launcher'] = 6;
+  player.ammoPools['Laser Gun'] = 80;
   spawnWave(state.waveIndex);
   spawnPickup('shells');
   spawnPickup('smg');
   spawnPickup('rockets');
+  spawnPickup('cells');
   updateHud();
   requestAnimationFrame(loop);
 }
@@ -794,6 +864,9 @@ function switchWeapon(slot) {
   } else if (slot === 4) {
     player.weapon = 'Rocket Launcher';
     updateHud();
+  } else if (slot === 5) {
+    player.weapon = 'Laser Gun';
+    updateHud();
   }
 }
 
@@ -821,6 +894,10 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.code === 'Digit4' || event.code === 'Numpad4') {
     switchWeapon(4);
+    return;
+  }
+  if (event.code === 'Digit5' || event.code === 'Numpad5') {
+    switchWeapon(5);
     return;
   }
 
