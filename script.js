@@ -34,7 +34,10 @@ const player = {
   health: 100,
   armor: 0,
   weapon: 'Revolver',
-  ammo: Infinity,
+  ammoPools: {
+    Revolver: Infinity,
+    Shotgun: 16,
+  },
   radius: 14,
 };
 
@@ -46,6 +49,7 @@ const input = {
 
 const bullets = [];
 const enemies = [];
+const pickups = [];
 
 const weapons = {
   Revolver: {
@@ -53,6 +57,18 @@ const weapons = {
     speed: 620,
     damage: 28,
     color: '#ffd166',
+    ammoKey: 'Revolver',
+    pellets: 1,
+    spread: 0,
+  },
+  Shotgun: {
+    fireRate: 1.35,
+    speed: 540,
+    damage: 12,
+    color: '#ff9b5f',
+    ammoKey: 'Shotgun',
+    pellets: 7,
+    spread: 0.24,
   },
 };
 
@@ -80,6 +96,33 @@ const waves = [
   { type: 'Kleer', count: 6, bonus: { type: 'Kamikaze', count: 6 } },
 ];
 
+const pickupTypes = {
+  health: {
+    radius: 14,
+    color: '#4ade80',
+    apply: () => {
+      player.health = Math.min(100, player.health + 30);
+    },
+    label: '+HP',
+  },
+  armor: {
+    radius: 14,
+    color: '#60a5fa',
+    apply: () => {
+      player.armor = Math.min(75, player.armor + 20);
+    },
+    label: '+AR',
+  },
+  shells: {
+    radius: 14,
+    color: '#f4a261',
+    apply: () => {
+      player.ammoPools.Shotgun = Math.min(40, player.ammoPools.Shotgun + 8);
+    },
+    label: 'Shells',
+  },
+};
+
 let lastShotTime = 0;
 
 function resizeCanvas() {
@@ -104,7 +147,8 @@ function updateHud() {
   hud.health.textContent = player.health.toFixed(0);
   hud.armor.textContent = player.armor.toFixed(0);
   hud.weapon.textContent = player.weapon;
-  hud.ammo.textContent = player.ammo === Infinity ? '∞' : player.ammo;
+  const ammo = player.ammoPools[player.weapon];
+  hud.ammo.textContent = ammo === Infinity ? '∞' : ammo;
   hud.wave.textContent = `${state.waveIndex + 1} / ${waves.length}`;
 }
 
@@ -167,23 +211,37 @@ function tryShoot(timestamp) {
 
   const interval = 1000 / weapon.fireRate;
   if (timestamp - lastShotTime < interval) return;
-  lastShotTime = timestamp;
+
+  const ammoPool = player.ammoPools[weapon.ammoKey];
+  if (ammoPool !== Infinity && ammoPool <= 0) return;
 
   const dirX = input.mouse.x - player.x;
   const dirY = input.mouse.y - player.y;
-  const length = Math.hypot(dirX, dirY) || 1;
-  const nx = dirX / length;
-  const ny = dirY / length;
+  const baseAngle = Math.atan2(dirY, dirX);
 
-  bullets.push({
-    x: player.x + nx * (player.radius + 6),
-    y: player.y + ny * (player.radius + 6),
-    vx: nx * weapon.speed,
-    vy: ny * weapon.speed,
-    life: 1.6,
-    color: weapon.color,
-    damage: weapon.damage,
-  });
+  for (let i = 0; i < weapon.pellets; i += 1) {
+    const spread = weapon.spread * (Math.random() - 0.5);
+    const angle = baseAngle + spread;
+    const nx = Math.cos(angle);
+    const ny = Math.sin(angle);
+
+    bullets.push({
+      x: player.x + nx * (player.radius + 6),
+      y: player.y + ny * (player.radius + 6),
+      vx: nx * weapon.speed,
+      vy: ny * weapon.speed,
+      life: 1.6,
+      color: weapon.color,
+      damage: weapon.damage,
+    });
+  }
+
+  if (ammoPool !== Infinity) {
+    player.ammoPools[weapon.ammoKey] -= 1;
+  }
+
+  lastShotTime = timestamp;
+  updateHud();
 }
 
 function spawnEnemy(type) {
@@ -231,6 +289,15 @@ function spawnWave(index) {
       spawnEnemy(wave.bonus.type);
     }
   }
+}
+
+function spawnPickup(type) {
+  const definition = pickupTypes[type];
+  if (!definition) return;
+  const padding = 40;
+  const x = padding + Math.random() * (state.width - padding * 2);
+  const y = padding + Math.random() * (state.height - padding * 2);
+  pickups.push({ type, x, y, radius: definition.radius });
 }
 
 function drawBackdrop(delta) {
@@ -292,9 +359,30 @@ function drawEnemies() {
   });
 }
 
+function drawPickups() {
+  pickups.forEach((pickup) => {
+    const def = pickupTypes[pickup.type];
+    if (!def) return;
+    ctx.save();
+    ctx.translate(pickup.x, pickup.y);
+    ctx.fillStyle = def.color;
+    ctx.beginPath();
+    ctx.arc(0, 0, pickup.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#0b1018';
+    ctx.font = '12px Inter, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(def.label, 0, 0);
+    ctx.restore();
+  });
+}
+
 function render(delta) {
   resizeCanvas();
   drawBackdrop(delta);
+  drawPickups();
   drawPlayer();
   drawBullets(delta);
   drawEnemies();
@@ -302,7 +390,13 @@ function render(delta) {
 }
 
 function damagePlayer(amount) {
-  player.health -= amount;
+  let remaining = amount;
+  if (player.armor > 0) {
+    const absorbed = Math.min(player.armor, remaining * 0.6);
+    player.armor -= absorbed;
+    remaining -= absorbed;
+  }
+  player.health -= remaining;
   updateHud();
   if (player.health <= 0) {
     endRun(false);
@@ -363,9 +457,34 @@ function updateEnemies(delta) {
   if (enemies.length === 0 && !state.waveDelayUntil) {
     if (state.waveIndex < waves.length - 1) {
       state.waveDelayUntil = performance.now() + 1200;
+      spawnIntermissionPickups();
     } else {
       endRun(true);
     }
+  }
+}
+
+function updatePickups() {
+  for (let i = pickups.length - 1; i >= 0; i -= 1) {
+    const pickup = pickups[i];
+    const dist = Math.hypot(pickup.x - player.x, pickup.y - player.y);
+    if (dist <= pickup.radius + player.radius) {
+      const def = pickupTypes[pickup.type];
+      if (def && typeof def.apply === 'function') {
+        def.apply();
+      }
+      pickups.splice(i, 1);
+      updateHud();
+    }
+  }
+}
+
+function spawnIntermissionPickups() {
+  pickups.length = 0;
+  spawnPickup('health');
+  spawnPickup('shells');
+  if (Math.random() > 0.4) {
+    spawnPickup('armor');
   }
 }
 
@@ -397,6 +516,7 @@ function loop(timestamp) {
   handleInput(delta, timestamp);
   updateBullets(delta);
   updateEnemies(delta);
+  updatePickups();
   render(delta);
   requestAnimationFrame(loop);
 }
@@ -409,6 +529,7 @@ function startGame() {
   state.waveDelayUntil = null;
   bullets.length = 0;
   enemies.length = 0;
+  pickups.length = 0;
   lastShotTime = 0;
   overlay.classList.remove('visible');
   pauseOverlay.classList.remove('visible');
@@ -416,10 +537,14 @@ function startGame() {
   overlayDescription.textContent = 'Browser-based 2D pseudo-3D shooter prototype.';
   startButton.textContent = 'Start';
   player.health = 100;
-  player.armor = 0;
+  player.armor = 10;
   player.x = state.width / 2;
   player.y = state.height * 0.65;
+  player.weapon = 'Revolver';
+  player.ammoPools.Revolver = Infinity;
+  player.ammoPools.Shotgun = 16;
   spawnWave(state.waveIndex);
+  spawnPickup('shells');
   updateHud();
   requestAnimationFrame(loop);
 }
@@ -456,7 +581,15 @@ window.addEventListener('keydown', (event) => {
     }
     return;
   }
-  input.keys.add(event.code);
+  if (event.code === 'Digit1') {
+    player.weapon = 'Revolver';
+    updateHud();
+  } else if (event.code === 'Digit2') {
+    player.weapon = 'Shotgun';
+    updateHud();
+  } else {
+    input.keys.add(event.code);
+  }
 });
 
 window.addEventListener('keyup', (event) => {
