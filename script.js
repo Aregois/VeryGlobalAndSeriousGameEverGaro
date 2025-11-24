@@ -38,6 +38,7 @@ const player = {
     Revolver: Infinity,
     Shotgun: 16,
     'Tommy Gun': 120,
+    'Rocket Launcher': 6,
   },
   radius: 14,
 };
@@ -51,6 +52,7 @@ const input = {
 const bullets = [];
 const enemies = [];
 const pickups = [];
+const explosions = [];
 
 const weapons = {
   Revolver: {
@@ -80,6 +82,18 @@ const weapons = {
     pellets: 1,
     spread: 0.05,
   },
+  'Rocket Launcher': {
+    fireRate: 0.9,
+    speed: 440,
+    damage: 140,
+    color: '#f87171',
+    ammoKey: 'Rocket Launcher',
+    pellets: 1,
+    spread: 0,
+    radius: 6,
+    explosionRadius: 72,
+    selfDamage: 0.5,
+  },
 };
 
 const enemyTypes = {
@@ -106,14 +120,22 @@ const enemyTypes = {
     fireRate: 1.4,
     projectileSpeed: 380,
   },
+  Werebull: {
+    radius: 18,
+    speed: 220,
+    damage: 42,
+    health: 140,
+    color: '#f59e0b',
+  },
 };
 
 const waves = [
   { type: 'Kamikaze', count: 6 },
   { type: 'Kamikaze', count: 10 },
-  { type: 'Kleer', count: 4 },
-  { type: 'Kleer', count: 6, bonus: { type: 'Kamikaze', count: 6 } },
-  { type: 'BioMech', count: 3, bonus: { type: 'Kamikaze', count: 6 } },
+  { type: 'Kleer', count: 6 },
+  { type: 'Kleer', count: 7, bonus: { type: 'Kamikaze', count: 8 } },
+  { type: 'BioMech', count: 3, bonus: { type: 'Kamikaze', count: 8 } },
+  { type: 'Werebull', count: 4, bonus: { type: 'Kamikaze', count: 6 } },
 ];
 
 const pickupTypes = {
@@ -148,6 +170,14 @@ const pickupTypes = {
       player.ammoPools['Tommy Gun'] = Math.min(240, player.ammoPools['Tommy Gun'] + 40);
     },
     label: 'SMG',
+  },
+  rockets: {
+    radius: 14,
+    color: '#fb7185',
+    apply: () => {
+      player.ammoPools['Rocket Launcher'] = Math.min(12, player.ammoPools['Rocket Launcher'] + 3);
+    },
+    label: 'Rockets',
   },
 };
 
@@ -262,6 +292,9 @@ function tryShoot(timestamp) {
       life: 1.6,
       color: weapon.color,
       damage: weapon.damage,
+      radius: weapon.radius ?? 4,
+      explosionRadius: weapon.explosionRadius,
+      selfDamage: weapon.selfDamage,
     });
   }
 
@@ -359,10 +392,24 @@ function drawBullets(delta) {
   bullets.forEach((bullet) => {
     ctx.fillStyle = bullet.color;
     ctx.beginPath();
-    ctx.arc(bullet.x, bullet.y, 4, 0, Math.PI * 2);
+    const radius = bullet.radius ?? 4;
+    ctx.arc(bullet.x, bullet.y, radius, 0, Math.PI * 2);
     ctx.fill();
   });
   ctx.restore();
+}
+
+function drawExplosions() {
+  explosions.forEach((explosion) => {
+    const alpha = Math.max(0, explosion.life / explosion.maxLife);
+    ctx.fillStyle = `rgba(255, 184, 107, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(explosion.x, explosion.y, explosion.radius * (1 - alpha * 0.35), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.7})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
 }
 
 function drawEnemyProjectiles() {
@@ -429,6 +476,7 @@ function render(delta) {
   drawPickups();
   drawPlayer();
   drawBullets(delta);
+  drawExplosions();
   drawEnemyProjectiles();
   drawEnemies();
   drawCrosshair();
@@ -448,6 +496,29 @@ function damagePlayer(amount) {
   }
 }
 
+function detonate(bullet, x, y) {
+  if (!bullet.explosionRadius) return;
+  explosions.push({ x, y, radius: bullet.explosionRadius, life: 0.25, maxLife: 0.25 });
+
+  for (let j = enemies.length - 1; j >= 0; j -= 1) {
+    const enemy = enemies[j];
+    const dist = Math.hypot(enemy.x - x, enemy.y - y);
+    if (dist <= enemy.radius + bullet.explosionRadius) {
+      enemy.health -= bullet.damage;
+      if (enemy.health <= 0) {
+        enemies.splice(j, 1);
+      }
+    }
+  }
+
+  if (bullet.selfDamage) {
+    const playerDist = Math.hypot(player.x - x, player.y - y);
+    if (playerDist <= bullet.explosionRadius + player.radius) {
+      damagePlayer(bullet.damage * bullet.selfDamage);
+    }
+  }
+}
+
 function updateBullets(delta) {
   for (let i = bullets.length - 1; i >= 0; i -= 1) {
     const bullet = bullets[i];
@@ -462,6 +533,9 @@ function updateBullets(delta) {
       bullet.y < -20 ||
       bullet.y > state.height + 20
     ) {
+      if (bullet.explosionRadius) {
+        detonate(bullet, bullet.x, bullet.y);
+      }
       bullets.splice(i, 1);
       continue;
     }
@@ -469,12 +543,17 @@ function updateBullets(delta) {
     for (let j = enemies.length - 1; j >= 0; j -= 1) {
       const enemy = enemies[j];
       const dist = Math.hypot(enemy.x - bullet.x, enemy.y - bullet.y);
-      if (dist <= enemy.radius) {
-        enemy.health -= bullet.damage;
-        bullets.splice(i, 1);
-        if (enemy.health <= 0) {
-          enemies.splice(j, 1);
+      const hitRange = enemy.radius + (bullet.radius ?? 4);
+      if (dist <= hitRange) {
+        if (bullet.explosionRadius) {
+          detonate(bullet, bullet.x, bullet.y);
+        } else {
+          enemy.health -= bullet.damage;
+          if (enemy.health <= 0) {
+            enemies.splice(j, 1);
+          }
         }
+        bullets.splice(i, 1);
         break;
       }
     }
@@ -501,6 +580,16 @@ function updateEnemyProjectiles(delta) {
     if (dist <= projectile.radius + player.radius) {
       damagePlayer(projectile.damage);
       enemyProjectiles.splice(i, 1);
+    }
+  }
+}
+
+function updateExplosions(delta) {
+  for (let i = explosions.length - 1; i >= 0; i -= 1) {
+    const explosion = explosions[i];
+    explosion.life -= delta;
+    if (explosion.life <= 0) {
+      explosions.splice(i, 1);
     }
   }
 }
@@ -537,6 +626,16 @@ function updateEnemies(delta) {
         });
         enemy.lastShot = performance.now();
       }
+    } else if (enemy.type === 'Werebull') {
+      const dirX = player.x - enemy.x;
+      const dirY = player.y - enemy.y;
+      const dist = distToPlayer;
+      const nx = dirX / dist;
+      const ny = dirY / dist;
+      const chargeMultiplier = dist > 240 ? 1.25 : 1.05;
+
+      enemy.x += nx * enemy.speed * chargeMultiplier * delta;
+      enemy.y += ny * enemy.speed * chargeMultiplier * delta;
     } else {
       const dirX = player.x - enemy.x;
       const dirY = player.y - enemy.y;
@@ -585,6 +684,7 @@ function spawnIntermissionPickups() {
   spawnPickup('health');
   spawnPickup('shells');
   spawnPickup('smg');
+  spawnPickup('rockets');
   if (Math.random() > 0.4) {
     spawnPickup('armor');
   }
@@ -620,6 +720,7 @@ function loop(timestamp) {
   updateEnemies(delta);
   updateEnemyProjectiles(delta);
   updatePickups();
+  updateExplosions(delta);
   render(delta);
   requestAnimationFrame(loop);
 }
@@ -648,9 +749,11 @@ function startGame() {
   player.ammoPools.Revolver = Infinity;
   player.ammoPools.Shotgun = 16;
   player.ammoPools['Tommy Gun'] = 120;
+  player.ammoPools['Rocket Launcher'] = 6;
   spawnWave(state.waveIndex);
   spawnPickup('shells');
   spawnPickup('smg');
+  spawnPickup('rockets');
   updateHud();
   requestAnimationFrame(loop);
 }
@@ -688,6 +791,9 @@ function switchWeapon(slot) {
   } else if (slot === 3) {
     player.weapon = 'Tommy Gun';
     updateHud();
+  } else if (slot === 4) {
+    player.weapon = 'Rocket Launcher';
+    updateHud();
   }
 }
 
@@ -711,6 +817,10 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.code === 'Digit3' || event.code === 'Numpad3') {
     switchWeapon(3);
+    return;
+  }
+  if (event.code === 'Digit4' || event.code === 'Numpad4') {
+    switchWeapon(4);
     return;
   }
 
