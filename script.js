@@ -572,6 +572,16 @@ function toggleFullscreen() {
   }
 }
 
+function switchWeapon(slot) {
+  if (slot === 1) {
+    player.weapon = 'Revolver';
+    updateHud();
+  } else if (slot === 2) {
+    player.weapon = 'Shotgun';
+    updateHud();
+  }
+}
+
 window.addEventListener('keydown', (event) => {
   if (event.code === 'Escape') {
     if (state.paused) {
@@ -581,15 +591,17 @@ window.addEventListener('keydown', (event) => {
     }
     return;
   }
-  if (event.code === 'Digit1') {
-    player.weapon = 'Revolver';
-    updateHud();
-  } else if (event.code === 'Digit2') {
-    player.weapon = 'Shotgun';
-    updateHud();
-  } else {
-    input.keys.add(event.code);
+
+  if (event.code === 'Digit1' || event.code === 'Numpad1') {
+    switchWeapon(1);
+    return;
   }
+  if (event.code === 'Digit2' || event.code === 'Numpad2') {
+    switchWeapon(2);
+    return;
+  }
+
+  input.keys.add(event.code);
 });
 
 window.addEventListener('keyup', (event) => {
