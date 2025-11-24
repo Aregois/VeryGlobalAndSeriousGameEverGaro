@@ -40,6 +40,7 @@ const player = {
     'Tommy Gun': 120,
     'Rocket Launcher': 6,
     'Laser Gun': 80,
+    Cannon: 3,
   },
   radius: 14,
 };
@@ -54,6 +55,7 @@ const bullets = [];
 const enemies = [];
 const pickups = [];
 const explosions = [];
+const bossShockwaves = [];
 
 const weapons = {
   Revolver: {
@@ -104,6 +106,18 @@ const weapons = {
     pellets: 2,
     spread: 0.06,
   },
+  Cannon: {
+    fireRate: 0.45,
+    speed: 360,
+    damage: 220,
+    color: '#ffe08a',
+    ammoKey: 'Cannon',
+    pellets: 1,
+    spread: 0.02,
+    radius: 8,
+    explosionRadius: 110,
+    selfDamage: 0.35,
+  },
 };
 
 const enemyTypes = {
@@ -146,6 +160,15 @@ const enemyTypes = {
     fireRate: 1.8,
     projectileSpeed: 420,
   },
+  UghZan: {
+    radius: 32,
+    speed: 55,
+    damage: 55,
+    health: 1200,
+    color: '#f97316',
+    fireRate: 1.1,
+    projectileSpeed: 320,
+  },
 };
 
 const waves = [
@@ -156,6 +179,7 @@ const waves = [
   { type: 'BioMech', count: 3, bonus: { type: 'Kamikaze', count: 8 } },
   { type: 'Werebull', count: 4, bonus: { type: 'Kamikaze', count: 6 } },
   { type: 'Harpy', count: 8, bonus: { type: 'Kleer', count: 6 } },
+  { type: 'UghZan', count: 1 },
 ];
 
 const pickupTypes = {
@@ -206,6 +230,14 @@ const pickupTypes = {
       player.ammoPools['Laser Gun'] = Math.min(160, player.ammoPools['Laser Gun'] + 24);
     },
     label: 'Cells',
+  },
+  cannonballs: {
+    radius: 14,
+    color: '#ffd166',
+    apply: () => {
+      player.ammoPools.Cannon = Math.min(8, player.ammoPools.Cannon + 2);
+    },
+    label: 'Cannon',
   },
 };
 
@@ -444,15 +476,26 @@ function drawExplosions() {
 function drawEnemyProjectiles() {
   ctx.save();
   enemyProjectiles.forEach((projectile) => {
-    ctx.fillStyle = 'rgba(255, 149, 255, 0.85)';
+    ctx.fillStyle = projectile.color ?? 'rgba(255, 149, 255, 0.85)';
     ctx.beginPath();
-    ctx.arc(projectile.x, projectile.y, 5, 0, Math.PI * 2);
+    ctx.arc(projectile.x, projectile.y, projectile.radius ?? 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
     ctx.lineWidth = 2;
     ctx.stroke();
   });
   ctx.restore();
+}
+
+function drawShockwaves() {
+  bossShockwaves.forEach((wave) => {
+    const alpha = Math.max(0, wave.life / wave.maxLife);
+    ctx.strokeStyle = `rgba(255, 171, 89, ${alpha})`;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(wave.x, wave.y, wave.radius * (1 - alpha * 0.25), 0, Math.PI * 2);
+    ctx.stroke();
+  });
 }
 
 function drawEnemies() {
@@ -507,6 +550,7 @@ function render(delta) {
   drawBullets(delta);
   drawExplosions();
   drawEnemyProjectiles();
+  drawShockwaves();
   drawEnemies();
   drawCrosshair();
 }
@@ -606,8 +650,13 @@ function updateEnemyProjectiles(delta) {
     }
 
     const dist = Math.hypot(projectile.x - player.x, projectile.y - player.y);
-    if (dist <= projectile.radius + player.radius) {
-      damagePlayer(projectile.damage);
+    if (dist <= (projectile.radius ?? 5) + player.radius) {
+      if (projectile.explosionRadius) {
+        explosions.push({ x: projectile.x, y: projectile.y, radius: projectile.explosionRadius, life: 0.3, maxLife: 0.3 });
+        damagePlayer(projectile.damage);
+      } else {
+        damagePlayer(projectile.damage);
+      }
       enemyProjectiles.splice(i, 1);
     }
   }
@@ -619,6 +668,14 @@ function updateExplosions(delta) {
     explosion.life -= delta;
     if (explosion.life <= 0) {
       explosions.splice(i, 1);
+    }
+  }
+
+  for (let i = bossShockwaves.length - 1; i >= 0; i -= 1) {
+    const wave = bossShockwaves[i];
+    wave.life -= delta;
+    if (wave.life <= 0) {
+      bossShockwaves.splice(i, 1);
     }
   }
 }
@@ -703,6 +760,51 @@ function updateEnemies(delta) {
         enemy.y += ny * enemy.speed * 1.4 * delta;
         enemy.nextDive = now + 2000 + Math.random() * 1800;
       }
+    } else if (enemy.type === 'UghZan') {
+      const dirX = player.x - enemy.x;
+      const dirY = player.y - enemy.y;
+      const dist = distToPlayer;
+      const nx = dirX / dist;
+      const ny = dirY / dist;
+
+      if (dist > 220) {
+        enemy.x += nx * enemy.speed * delta;
+        enemy.y += ny * enemy.speed * delta;
+      }
+
+      const now = performance.now();
+      const fireInterval = 1000 / enemyTypes.UghZan.fireRate;
+      if (now - enemy.lastShot > fireInterval) {
+        const projSpeed = enemyTypes.UghZan.projectileSpeed;
+        for (let n = 0; n < 3; n += 1) {
+          const angle = Math.atan2(ny, nx) + (Math.random() - 0.5) * 0.25;
+          const ax = Math.cos(angle);
+          const ay = Math.sin(angle);
+          enemyProjectiles.push({
+            x: enemy.x,
+            y: enemy.y,
+            vx: ax * projSpeed,
+            vy: ay * projSpeed,
+            radius: 8,
+            damage: enemy.damage,
+            explosionRadius: 70,
+            color: 'rgba(255, 143, 94, 0.9)',
+          });
+        }
+        enemy.lastShot = now;
+      }
+
+      if (!enemy.lastStomp) {
+        enemy.lastStomp = now + 1800;
+      }
+      if (now >= enemy.lastStomp) {
+        bossShockwaves.push({ x: enemy.x, y: enemy.y, radius: 180, life: 0.45, maxLife: 0.45 });
+        const stompDist = Math.hypot(player.x - enemy.x, player.y - enemy.y);
+        if (stompDist <= 200) {
+          damagePlayer(enemy.damage * 0.75);
+        }
+        enemy.lastStomp = now + 2400 + Math.random() * 1200;
+      }
     } else {
       const dirX = player.x - enemy.x;
       const dirY = player.y - enemy.y;
@@ -753,6 +855,9 @@ function spawnIntermissionPickups() {
   spawnPickup('smg');
   spawnPickup('rockets');
   spawnPickup('cells');
+  if (state.waveIndex >= 4) {
+    spawnPickup('cannonballs');
+  }
   if (Math.random() > 0.4) {
     spawnPickup('armor');
   }
@@ -763,7 +868,7 @@ function endRun(victory) {
   state.paused = false;
   overlayTitle.textContent = victory ? 'Victory!' : 'Garo has fallen';
   overlayDescription.textContent = victory
-    ? 'You cleared all prototype waves. Continue the fight soon.'
+    ? 'You felled Ugh-Zan III and survived the full gauntlet. Continue the fight soon.'
     : 'Enemies overwhelmed Garo. Try again to push further.';
   startButton.textContent = 'Restart';
   overlay.classList.add('visible');
@@ -803,6 +908,7 @@ function startGame() {
   enemies.length = 0;
   enemyProjectiles.length = 0;
   pickups.length = 0;
+  bossShockwaves.length = 0;
   lastShotTime = 0;
   overlay.classList.remove('visible');
   pauseOverlay.classList.remove('visible');
@@ -819,11 +925,13 @@ function startGame() {
   player.ammoPools['Tommy Gun'] = 120;
   player.ammoPools['Rocket Launcher'] = 6;
   player.ammoPools['Laser Gun'] = 80;
+  player.ammoPools.Cannon = 3;
   spawnWave(state.waveIndex);
   spawnPickup('shells');
   spawnPickup('smg');
   spawnPickup('rockets');
   spawnPickup('cells');
+  spawnPickup('cannonballs');
   updateHud();
   requestAnimationFrame(loop);
 }
@@ -867,6 +975,9 @@ function switchWeapon(slot) {
   } else if (slot === 5) {
     player.weapon = 'Laser Gun';
     updateHud();
+  } else if (slot === 6) {
+    player.weapon = 'Cannon';
+    updateHud();
   }
 }
 
@@ -898,6 +1009,10 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.code === 'Digit5' || event.code === 'Numpad5') {
     switchWeapon(5);
+    return;
+  }
+  if (event.code === 'Digit6' || event.code === 'Numpad6') {
+    switchWeapon(6);
     return;
   }
 
