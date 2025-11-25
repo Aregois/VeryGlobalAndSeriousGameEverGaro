@@ -17,7 +17,107 @@ const overlayDescription = document.getElementById('overlay-description');
 const pauseOverlay = document.getElementById('pause');
 const startButton = document.getElementById('start-button');
 const resumeButton = document.getElementById('resume-button');
+const audioButton = document.getElementById('audio-button');
 const fullscreenButton = document.getElementById('fullscreen-button');
+
+let audioEnabled = true;
+let audioContext = null;
+
+function ensureAudioContext() {
+  if (!audioEnabled) return null;
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioContext.state === 'suspended') {
+    audioContext.resume();
+  }
+  return audioContext;
+}
+
+function playTone({ type = 'square', frequency = 440, duration = 0.14, gain = 0.12, detune = 0 }) {
+  const ctx = ensureAudioContext();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = frequency;
+  if (detune) {
+    osc.detune.value = detune;
+  }
+  const now = ctx.currentTime;
+  gainNode.gain.setValueAtTime(gain, now);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
+  osc.connect(gainNode).connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + duration);
+}
+
+function playNoise(duration = 0.16, gain = 0.14) {
+  const ctx = ensureAudioContext();
+  if (!ctx) return;
+  const bufferSize = duration * ctx.sampleRate;
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i += 1) {
+    data[i] = Math.random() * 2 - 1;
+  }
+
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  const gainNode = ctx.createGain();
+  const now = ctx.currentTime;
+  gainNode.gain.setValueAtTime(gain, now);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
+  source.connect(gainNode).connect(ctx.destination);
+  source.start(now);
+  source.stop(now + duration);
+}
+
+function playSfx(name) {
+  if (!audioEnabled) return;
+  switch (name) {
+    case 'revolver':
+      playTone({ type: 'square', frequency: 430, duration: 0.1, gain: 0.12 });
+      break;
+    case 'shotgun':
+      playNoise(0.18, 0.18);
+      playTone({ type: 'sawtooth', frequency: 240, duration: 0.14, gain: 0.12, detune: -120 });
+      break;
+    case 'tommy':
+      playTone({ type: 'square', frequency: 360, duration: 0.08, gain: 0.1 });
+      break;
+    case 'rocket':
+      playTone({ type: 'sawtooth', frequency: 190, duration: 0.2, gain: 0.13 });
+      break;
+    case 'laser':
+      playTone({ type: 'triangle', frequency: 820, duration: 0.09, gain: 0.1, detune: 60 });
+      break;
+    case 'cannon':
+      playNoise(0.28, 0.2);
+      playTone({ type: 'square', frequency: 120, duration: 0.24, gain: 0.14 });
+      break;
+    case 'knife':
+      playTone({ type: 'square', frequency: 560, duration: 0.08, gain: 0.08 });
+      break;
+    case 'explosion':
+      playNoise(0.22, 0.22);
+      break;
+    case 'pickup':
+      playTone({ type: 'triangle', frequency: 680, duration: 0.12, gain: 0.1 });
+      break;
+    case 'buff':
+      playTone({ type: 'square', frequency: 760, duration: 0.18, gain: 0.12 });
+      break;
+    case 'hurt':
+      playTone({ type: 'sawtooth', frequency: 220, duration: 0.12, gain: 0.1, detune: -60 });
+      break;
+    case 'enemyFire':
+      playTone({ type: 'triangle', frequency: 320, duration: 0.08, gain: 0.08 });
+      break;
+    default:
+      break;
+  }
+}
 
 const state = {
   running: false,
@@ -448,6 +548,7 @@ function tryShoot(timestamp) {
     }
 
     lastShotTime = timestamp;
+    playSfx('knife');
     if (anyKill) {
       updateStatusHud(timestamp);
       updateHud();
@@ -484,6 +585,19 @@ function tryShoot(timestamp) {
   }
 
   lastShotTime = timestamp;
+  if (player.weapon === 'Revolver') {
+    playSfx('revolver');
+  } else if (player.weapon === 'Shotgun' || player.weapon === 'Double-Barrel') {
+    playSfx('shotgun');
+  } else if (player.weapon === 'Tommy Gun') {
+    playSfx('tommy');
+  } else if (player.weapon === 'Rocket Launcher') {
+    playSfx('rocket');
+  } else if (player.weapon === 'Laser Gun') {
+    playSfx('laser');
+  } else if (player.weapon === 'Cannon') {
+    playSfx('cannon');
+  }
   updateHud();
 }
 
@@ -686,6 +800,7 @@ function damagePlayer(amount) {
   }
   player.health -= remaining;
   updateHud();
+  playSfx('hurt');
   if (player.health <= 0) {
     endRun(false);
   }
@@ -710,6 +825,7 @@ function registerKill(type) {
 function detonate(bullet, x, y) {
   if (!bullet.explosionRadius) return;
   explosions.push({ x, y, radius: bullet.explosionRadius, life: 0.25, maxLife: 0.25 });
+  playSfx('explosion');
   const damage = bullet.damage * getDamageMultiplier();
 
   for (let j = enemies.length - 1; j >= 0; j -= 1) {
@@ -854,6 +970,7 @@ function updateEnemies(delta) {
           damage: enemy.damage,
         });
         enemy.lastShot = performance.now();
+        playSfx('enemyFire');
       }
     } else if (enemy.type === 'Werebull') {
       const dirX = player.x - enemy.x;
@@ -896,6 +1013,7 @@ function updateEnemies(delta) {
           damage: enemy.damage,
         });
         enemy.lastShot = now;
+        playSfx('enemyFire');
       }
 
       if (now >= enemy.nextDive && dist < 200) {
@@ -943,6 +1061,7 @@ function updateEnemies(delta) {
           color: 'rgba(34, 211, 238, 0.9)',
         });
         enemy.lastShot = now;
+        playSfx('enemyFire');
       }
     } else if (enemy.type === 'UghZan') {
       const dirX = player.x - enemy.x;
@@ -976,6 +1095,7 @@ function updateEnemies(delta) {
           });
         }
         enemy.lastShot = now;
+        playSfx('enemyFire');
       }
 
       if (!enemy.lastStomp) {
@@ -1025,6 +1145,11 @@ function updatePickups() {
       const def = pickupTypes[pickup.type];
       if (def && typeof def.apply === 'function') {
         def.apply();
+        if (pickup.type === 'serious' || pickup.type === 'speed') {
+          playSfx('buff');
+        } else {
+          playSfx('pickup');
+        }
       }
       pickups.splice(i, 1);
       updateHud();
@@ -1091,6 +1216,7 @@ function loop(timestamp) {
 }
 
 function startGame() {
+  ensureAudioContext();
   state.running = true;
   state.paused = false;
   state.lastTime = performance.now();
@@ -1142,6 +1268,7 @@ function pauseGame() {
 
 function resumeGame() {
   if (!state.running) return;
+  ensureAudioContext();
   state.paused = false;
   pauseOverlay.classList.remove('visible');
   state.lastTime = performance.now();
@@ -1262,6 +1389,13 @@ window.addEventListener('blur', () => {
 startButton.addEventListener('click', startGame);
 resumeButton.addEventListener('click', resumeGame);
 fullscreenButton.addEventListener('click', toggleFullscreen);
+audioButton.addEventListener('click', () => {
+  audioEnabled = !audioEnabled;
+  audioButton.textContent = audioEnabled ? 'Audio: On' : 'Audio: Off';
+  if (audioEnabled) {
+    ensureAudioContext();
+  }
+});
 
 resizeCanvas();
 updateHud();

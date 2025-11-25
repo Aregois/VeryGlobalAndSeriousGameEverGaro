@@ -39,6 +39,16 @@ body {
   background: radial-gradient(circle at 50% 20%, #1d2736, #0b121c 60%);
 }
 
+#utility-bar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 10px;
+  pointer-events: auto;
+  z-index: 2;
+}
+
 #hud {
   position: absolute;
   inset: 0;
