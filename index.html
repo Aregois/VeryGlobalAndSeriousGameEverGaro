@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Very Global and Serious Game Ever Garo</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main id="game-root">
+    <canvas id="game-canvas" aria-label="Game canvas" role="presentation"></canvas>
+    <div id="utility-bar">
+      <button id="audio-button" type="button">Audio: On</button>
+      <button id="fullscreen-button" type="button">Toggle Fullscreen</button>
+    </div>
+    <section id="hud">
+      <div class="hud-bar">
+        <div class="hud-group">
+          <span class="label">Health</span>
+          <span id="hud-health" class="value">100</span>
+        </div>
+        <div class="hud-group">
+          <span class="label">Armor</span>
+          <span id="hud-armor" class="value">0</span>
+        </div>
+        <div class="hud-group">
+          <span class="label">Weapon</span>
+          <span id="hud-weapon" class="value">Revolver</span>
+        </div>
+        <div class="hud-group">
+          <span class="label">Ammo</span>
+          <span id="hud-ammo" class="value">∞</span>
+        </div>
+        <div class="hud-group">
+          <span class="label">Wave</span>
+          <span id="hud-wave" class="value">0 / 0</span>
+        </div>
+        <div class="hud-group">
+          <span class="label">Score</span>
+          <span id="hud-score" class="value">0</span>
+        </div>
+      </div>
+      <div class="hud-bar secondary">
+        <div class="hud-group">
+          <span class="label">Status</span>
+          <span id="hud-status" class="value">None</span>
+        </div>
+      </div>
+    </section>
+    <section id="overlay" class="overlay visible">
+      <div class="panel">
+        <h1 id="overlay-title">Garo's First Encounter</h1>
+        <p id="overlay-description">Browser-based 2D pseudo-3D shooter prototype.</p>
+        <button id="start-button" type="button">Start</button>
+        <p class="hint">
+          WASD to move · Mouse to aim · Left click to fire (explosions hurt) · 1-8 to switch weapons (8 = Knife) · ESC to
+          pause · Grab Serious Damage and Speed pickups to stack temporary buffs · Use the Audio toggle to silence or enable
+          the synth SFX
+        </p>
+      </div>
+    </section>
+    <section id="pause" class="overlay">
+      <div class="panel">
+        <h2>Paused</h2>
+        <button id="resume-button" type="button">Resume</button>
+      </div>
+    </section>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
