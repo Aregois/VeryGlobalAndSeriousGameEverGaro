@@ -238,12 +238,12 @@ function updateMusicVolume() {
 
 function setVolume(value, { persist = true } = {}) {
   masterVolume = clamp(value, 0, 1);
-  if (volumeSlider) {
-    volumeSlider.value = Math.round(masterVolume * 100);
-  }
-  if (volumeValue) {
-    volumeValue.textContent = `${Math.round(masterVolume * 100)}%`;
-  }
+if (volumeSlider) {
+  volumeSlider.value = Math.round(masterVolume * 100);
+}
+if (volumeValue) {
+  volumeValue.textContent = `${Math.round(masterVolume * 100)}%`;
+}
   updateMusicVolume();
   if (persist) {
     persistSettings();
@@ -258,9 +258,14 @@ function setSensitivity(value, { persist = true } = {}) {
   if (sensitivityValue) {
     sensitivityValue.textContent = `${Math.round(mouseSensitivity * 100)}%`;
   }
+
   if (persist) {
     persistSettings();
   }
+}
+
+if (difficultySelect && difficulties[savedDifficulty]) {
+  difficultySelect.value = savedDifficulty;
 }
 
 function refreshAudioUi() {
@@ -332,17 +337,21 @@ const BEST_RUNS_KEY = 'garoBestRuns';
 function loadSettings() {
   try {
     const saved = localStorage.getItem(SETTINGS_KEY);
-    if (!saved) return { volume: 1, audioEnabled: true, effectsEnabled: true, sensitivity: 1 };
+    if (!saved)
+      return { volume: 1, audioEnabled: true, effectsEnabled: true, sensitivity: 1, difficulty: 'normal' };
     const parsed = JSON.parse(saved);
+    const fallback = { volume: 1, audioEnabled: true, effectsEnabled: true, sensitivity: 1, difficulty: 'normal' };
+    const difficulty = difficulties[parsed.difficulty] ? parsed.difficulty : fallback.difficulty;
     return {
-      volume: clamp(parsed.volume ?? 1, 0, 1),
-      audioEnabled: parsed.audioEnabled ?? true,
-      effectsEnabled: parsed.effectsEnabled ?? true,
-      sensitivity: clamp(parsed.sensitivity ?? 1, 0.4, 2),
+      volume: clamp(parsed.volume ?? fallback.volume, 0, 1),
+      audioEnabled: parsed.audioEnabled ?? fallback.audioEnabled,
+      effectsEnabled: parsed.effectsEnabled ?? fallback.effectsEnabled,
+      sensitivity: clamp(parsed.sensitivity ?? fallback.sensitivity, 0.4, 2),
+      difficulty,
     };
   } catch (error) {
     console.warn('Could not load settings, resetting...', error);
-    return { volume: 1, audioEnabled: true, effectsEnabled: true, sensitivity: 1 };
+    return { volume: 1, audioEnabled: true, effectsEnabled: true, sensitivity: 1, difficulty: 'normal' };
   }
 }
 
@@ -360,6 +369,7 @@ function persistSettings() {
     audioEnabled,
     effectsEnabled: state.effectsEnabled,
     sensitivity: mouseSensitivity,
+    difficulty: state.difficulty,
   });
 }
 
@@ -396,6 +406,7 @@ const savedSettings = loadSettings();
 audioEnabled = savedSettings.audioEnabled ?? true;
 masterVolume = clamp(savedSettings.volume ?? 1, 0, 1);
 mouseSensitivity = clamp(savedSettings.sensitivity ?? 1, 0.4, 2);
+const savedDifficulty = difficulties[savedSettings.difficulty] ? savedSettings.difficulty : 'normal';
 
 function formatDuration(seconds) {
   const mins = Math.floor(seconds / 60);
@@ -464,7 +475,7 @@ const state = {
   waveDelayUntil: null,
   score: 0,
   kills: 0,
-  difficulty: 'normal',
+  difficulty: savedDifficulty,
   startTime: 0,
   screenShake: 0,
   hurtFlash: 0,
@@ -2007,6 +2018,13 @@ volumeSlider?.addEventListener('input', (event) => {
 sensitivitySlider?.addEventListener('input', (event) => {
   const value = Number(event.target.value) / 100;
   setSensitivity(value);
+});
+
+difficultySelect?.addEventListener('change', (event) => {
+  const value = event.target.value;
+  if (!difficulties[value]) return;
+  state.difficulty = value;
+  persistSettings();
 });
 
 resizeCanvas();
