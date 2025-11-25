@@ -76,6 +76,15 @@ const weapons = {
     pellets: 7,
     spread: 0.24,
   },
+  'Double-Barrel': {
+    fireRate: 0.9,
+    speed: 520,
+    damage: 24,
+    color: '#fbbf24',
+    ammoKey: 'Shotgun',
+    pellets: 10,
+    spread: 0.3,
+  },
   'Tommy Gun': {
     fireRate: 9,
     speed: 700,
@@ -169,6 +178,15 @@ const enemyTypes = {
     fireRate: 1.1,
     projectileSpeed: 320,
   },
+  Reptiloid: {
+    radius: 18,
+    speed: 90,
+    damage: 30,
+    health: 130,
+    color: '#22d3ee',
+    fireRate: 1.1,
+    projectileSpeed: 360,
+  },
 };
 
 const waves = [
@@ -179,6 +197,7 @@ const waves = [
   { type: 'BioMech', count: 3, bonus: { type: 'Kamikaze', count: 8 } },
   { type: 'Werebull', count: 4, bonus: { type: 'Kamikaze', count: 6 } },
   { type: 'Harpy', count: 8, bonus: { type: 'Kleer', count: 6 } },
+  { type: 'Reptiloid', count: 5, bonus: { type: 'BioMech', count: 2 } },
   { type: 'UghZan', count: 1 },
 ];
 
@@ -266,7 +285,9 @@ function updateHud() {
   hud.health.textContent = player.health.toFixed(0);
   hud.armor.textContent = player.armor.toFixed(0);
   hud.weapon.textContent = player.weapon;
-  const ammo = player.ammoPools[player.weapon];
+  const activeWeapon = weapons[player.weapon];
+  const ammoKey = activeWeapon?.ammoKey ?? player.weapon;
+  const ammo = player.ammoPools[ammoKey];
   hud.ammo.textContent = ammo === Infinity ? '∞' : ammo;
   hud.wave.textContent = `${state.waveIndex + 1} / ${waves.length}`;
 }
@@ -399,6 +420,7 @@ function spawnEnemy(type) {
     color: definition.color,
     lastShot: 0,
     nextDive: performance.now() + 1200 + Math.random() * 1400,
+    strafeDir: Math.random() > 0.5 ? 1 : -1,
   });
 }
 
@@ -760,6 +782,47 @@ function updateEnemies(delta) {
         enemy.y += ny * enemy.speed * 1.4 * delta;
         enemy.nextDive = now + 2000 + Math.random() * 1800;
       }
+    } else if (enemy.type === 'Reptiloid') {
+      const dirX = player.x - enemy.x;
+      const dirY = player.y - enemy.y;
+      const dist = distToPlayer;
+      const nx = dirX / dist;
+      const ny = dirY / dist;
+      const preferredRange = 260;
+
+      if (dist > preferredRange + 20) {
+        enemy.x += nx * enemy.speed * delta;
+        enemy.y += ny * enemy.speed * delta;
+      } else if (dist < preferredRange - 30) {
+        enemy.x -= nx * enemy.speed * delta;
+        enemy.y -= ny * enemy.speed * delta;
+      } else {
+        enemy.x += -ny * enemy.speed * 0.7 * enemy.strafeDir * delta;
+        enemy.y += nx * enemy.speed * 0.7 * enemy.strafeDir * delta;
+      }
+
+      if (Math.random() > 0.995) {
+        enemy.strafeDir *= -1;
+      }
+
+      const now = performance.now();
+      const fireInterval = 1000 / enemyTypes.Reptiloid.fireRate;
+      if (now - enemy.lastShot > fireInterval) {
+        const projSpeed = enemyTypes.Reptiloid.projectileSpeed;
+        const wobble = (Math.random() - 0.5) * 0.18;
+        const angle = Math.atan2(ny, nx) + wobble;
+        enemyProjectiles.push({
+          x: enemy.x,
+          y: enemy.y,
+          vx: Math.cos(angle) * projSpeed,
+          vy: Math.sin(angle) * projSpeed,
+          radius: 7,
+          damage: enemy.damage,
+          explosionRadius: 46,
+          color: 'rgba(34, 211, 238, 0.9)',
+        });
+        enemy.lastShot = now;
+      }
     } else if (enemy.type === 'UghZan') {
       const dirX = player.x - enemy.x;
       const dirY = player.y - enemy.y;
@@ -921,7 +984,7 @@ function startGame() {
   player.y = state.height * 0.65;
   player.weapon = 'Revolver';
   player.ammoPools.Revolver = Infinity;
-  player.ammoPools.Shotgun = 16;
+  player.ammoPools.Shotgun = 20;
   player.ammoPools['Tommy Gun'] = 120;
   player.ammoPools['Rocket Launcher'] = 6;
   player.ammoPools['Laser Gun'] = 80;
@@ -978,6 +1041,9 @@ function switchWeapon(slot) {
   } else if (slot === 6) {
     player.weapon = 'Cannon';
     updateHud();
+  } else if (slot === 7) {
+    player.weapon = 'Double-Barrel';
+    updateHud();
   }
 }
 
@@ -1013,6 +1079,10 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.code === 'Digit6' || event.code === 'Numpad6') {
     switchWeapon(6);
+    return;
+  }
+  if (event.code === 'Digit7' || event.code === 'Numpad7') {
+    switchWeapon(7);
     return;
   }
 
