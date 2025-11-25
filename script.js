@@ -43,6 +43,7 @@ const player = {
   armor: 0,
   weapon: 'Revolver',
   ammoPools: {
+    Knife: Infinity,
     Revolver: Infinity,
     Shotgun: 16,
     'Tommy Gun': 120,
@@ -66,6 +67,14 @@ const explosions = [];
 const bossShockwaves = [];
 
 const weapons = {
+  Knife: {
+    fireRate: 2.4,
+    damage: 50,
+    color: '#fcd34d',
+    ammoKey: 'Knife',
+    melee: true,
+    range: 70,
+  },
   Revolver: {
     fireRate: 4, // shots per second
     speed: 620,
@@ -138,6 +147,13 @@ const weapons = {
 };
 
 const enemyTypes = {
+  Gnaar: {
+    radius: 13,
+    speed: 120,
+    damage: 20,
+    health: 42,
+    color: '#9ca3af',
+  },
   Kamikaze: {
     radius: 14,
     speed: 140,
@@ -198,6 +214,7 @@ const enemyTypes = {
 };
 
 const waves = [
+  { type: 'Gnaar', count: 8 },
   { type: 'Kamikaze', count: 6 },
   { type: 'Kamikaze', count: 10 },
   { type: 'Kleer', count: 6 },
@@ -399,6 +416,44 @@ function tryShoot(timestamp) {
 
   const ammoPool = player.ammoPools[weapon.ammoKey];
   if (ammoPool !== Infinity && ammoPool <= 0) return;
+
+  if (weapon.melee) {
+    const now = performance.now();
+    const damage = weapon.damage * getDamageMultiplier(now);
+    const hits = [];
+    enemies.forEach((enemy, index) => {
+      const dist = Math.hypot(enemy.x - player.x, enemy.y - player.y);
+      if (dist <= weapon.range + enemy.radius) {
+        hits.push(index);
+      }
+    });
+
+    let anyKill = false;
+    for (let i = hits.length - 1; i >= 0; i -= 1) {
+      const idx = hits[i];
+      const target = enemies[idx];
+      target.health -= damage;
+      explosions.push({
+        x: target.x,
+        y: target.y,
+        radius: weapon.range * 0.4,
+        life: 0.12,
+        maxLife: 0.12,
+      });
+      if (target.health <= 0) {
+        registerKill(target.type);
+        enemies.splice(idx, 1);
+        anyKill = true;
+      }
+    }
+
+    lastShotTime = timestamp;
+    if (anyKill) {
+      updateStatusHud(timestamp);
+      updateHud();
+    }
+    return;
+  }
 
   const dirX = input.mouse.x - player.x;
   const dirY = input.mouse.y - player.y;
@@ -638,6 +693,7 @@ function damagePlayer(amount) {
 
 function registerKill(type) {
   const scores = {
+    Gnaar: 18,
     Kamikaze: 25,
     Kleer: 40,
     BioMech: 55,
@@ -1060,6 +1116,7 @@ function startGame() {
   player.x = state.width / 2;
   player.y = state.height * 0.65;
   player.weapon = 'Revolver';
+  player.ammoPools.Knife = Infinity;
   player.ammoPools.Revolver = Infinity;
   player.ammoPools.Shotgun = 20;
   player.ammoPools['Tommy Gun'] = 120;
@@ -1122,6 +1179,9 @@ function switchWeapon(slot) {
   } else if (slot === 7) {
     player.weapon = 'Double-Barrel';
     updateHud();
+  } else if (slot === 8) {
+    player.weapon = 'Knife';
+    updateHud();
   }
 }
 
@@ -1161,6 +1221,10 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.code === 'Digit7' || event.code === 'Numpad7') {
     switchWeapon(7);
+    return;
+  }
+  if (event.code === 'Digit8' || event.code === 'Numpad8') {
+    switchWeapon(8);
     return;
   }
 
