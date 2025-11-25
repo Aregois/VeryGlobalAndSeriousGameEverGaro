@@ -543,6 +543,17 @@ const weapons = {
   },
 };
 
+const weaponSlots = [
+  'Revolver',
+  'Shotgun',
+  'Tommy Gun',
+  'Rocket Launcher',
+  'Laser Gun',
+  'Cannon',
+  'Double-Barrel',
+  'Knife',
+];
+
 const enemyTypes = {
   Gnaar: {
     radius: 13,
@@ -1760,31 +1771,17 @@ function handlePointerLockChange() {
 }
 
 function switchWeapon(slot) {
-  if (slot === 1) {
-    player.weapon = 'Revolver';
-    updateHud();
-  } else if (slot === 2) {
-    player.weapon = 'Shotgun';
-    updateHud();
-  } else if (slot === 3) {
-    player.weapon = 'Tommy Gun';
-    updateHud();
-  } else if (slot === 4) {
-    player.weapon = 'Rocket Launcher';
-    updateHud();
-  } else if (slot === 5) {
-    player.weapon = 'Laser Gun';
-    updateHud();
-  } else if (slot === 6) {
-    player.weapon = 'Cannon';
-    updateHud();
-  } else if (slot === 7) {
-    player.weapon = 'Double-Barrel';
-    updateHud();
-  } else if (slot === 8) {
-    player.weapon = 'Knife';
-    updateHud();
-  }
+  const slotIndex = slot - 1;
+  if (slotIndex < 0 || slotIndex >= weaponSlots.length) return;
+  player.weapon = weaponSlots[slotIndex];
+  updateHud();
+}
+
+function cycleWeapon(direction) {
+  const currentIndex = weaponSlots.indexOf(player.weapon);
+  const nextIndex = (currentIndex + direction + weaponSlots.length) % weaponSlots.length;
+  player.weapon = weaponSlots[nextIndex];
+  updateHud();
 }
 
 window.addEventListener('keydown', (event) => {
@@ -1829,6 +1826,14 @@ window.addEventListener('keydown', (event) => {
     switchWeapon(8);
     return;
   }
+  if (event.code === 'KeyQ') {
+    cycleWeapon(-1);
+    return;
+  }
+  if (event.code === 'KeyE') {
+    cycleWeapon(1);
+    return;
+  }
 
   input.keys.add(event.code);
 });
@@ -1836,6 +1841,17 @@ window.addEventListener('keydown', (event) => {
 window.addEventListener('keyup', (event) => {
   input.keys.delete(event.code);
 });
+
+window.addEventListener(
+  'wheel',
+  (event) => {
+    if (!state.running || state.paused) return;
+    if (Math.abs(event.deltaY) < 1) return;
+    event.preventDefault();
+    cycleWeapon(event.deltaY > 0 ? 1 : -1);
+  },
+  { passive: false },
+);
 
 window.addEventListener('mousemove', (event) => {
   if (document.pointerLockElement === canvas) {
