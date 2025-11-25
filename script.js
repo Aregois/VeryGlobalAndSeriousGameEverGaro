@@ -46,10 +46,13 @@ const overlaySummary = document.getElementById('overlay-summary');
 const bestRunsContainer = document.getElementById('best-runs');
 const resetProgressButton = document.getElementById('reset-progress');
 const audioButton = document.getElementById('audio-button');
+const musicButton = document.getElementById('music-button');
 const effectsButton = document.getElementById('effects-button');
 const statsButton = document.getElementById('stats-button');
 const volumeSlider = document.getElementById('volume-slider');
 const volumeValue = document.getElementById('volume-value');
+const musicVolumeSlider = document.getElementById('music-volume-slider');
+const musicVolumeValue = document.getElementById('music-volume-value');
 const sensitivitySlider = document.getElementById('sensitivity-slider');
 const sensitivityValue = document.getElementById('sensitivity-value');
 const crosshairSizeSlider = document.getElementById('crosshair-size');
@@ -60,6 +63,8 @@ const fullscreenButton = document.getElementById('fullscreen-button');
 
 let audioEnabled = true;
 let masterVolume = 1;
+let musicEnabled = true;
+let musicVolume = 1;
 let mouseSensitivity = 1;
 let crosshairSize = 24;
 let crosshairColor = '#ffffff';
@@ -86,10 +91,10 @@ function ensureAudioContext() {
   return audioContext;
 }
 
-function playTone({ type = 'square', frequency = 440, duration = 0.14, gain = 0.12, detune = 0, startAt }) {
+function playTone({ type = 'square', frequency = 440, duration = 0.14, gain = 0.12, detune = 0, startAt, volumeScale }) {
   const ctx = ensureAudioContext();
   if (!ctx) return;
-  const effectiveGain = gain * masterVolume;
+  const effectiveGain = gain * (volumeScale ?? masterVolume);
   if (effectiveGain <= 0) return;
   const osc = ctx.createOscillator();
   const gainNode = ctx.createGain();
@@ -106,10 +111,10 @@ function playTone({ type = 'square', frequency = 440, duration = 0.14, gain = 0.
   osc.stop(now + duration);
 }
 
-function playNoise(duration = 0.16, gain = 0.14) {
+function playNoise(duration = 0.16, gain = 0.14, volumeScale) {
   const ctx = ensureAudioContext();
   if (!ctx) return;
-  const effectiveGain = gain * masterVolume;
+  const effectiveGain = gain * (volumeScale ?? masterVolume);
   if (effectiveGain <= 0) return;
   const bufferSize = duration * ctx.sampleRate;
   const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
@@ -208,7 +213,7 @@ function getMusicConfig(intensity) {
 }
 
 function startMusic(intensity = 'build') {
-  if (!audioEnabled) return;
+  if (!audioEnabled || !musicEnabled) return;
   const ctx = ensureAudioContext();
   if (!ctx) return;
 
@@ -222,20 +227,20 @@ function startMusic(intensity = 'build') {
   music.oscillator.frequency.value = config.baseFreq;
 
   music.gain = ctx.createGain();
-  music.gain.gain.setValueAtTime(config.gain * masterVolume, ctx.currentTime);
+  music.gain.gain.setValueAtTime(config.gain * musicVolume, ctx.currentTime);
 
   music.oscillator.connect(music.gain).connect(ctx.destination);
   music.oscillator.start();
 
   const beatIntervalMs = (60 / config.bpm) * 1000;
   music.beatInterval = setInterval(() => {
-    if (!audioEnabled) {
+    if (!audioEnabled || !musicEnabled) {
       stopMusic();
       return;
     }
     const now = ctx.currentTime;
-    playNoise(0.05, config.beatGain);
-    playTone({ type: 'square', frequency: config.beatFreq, duration: 0.08, gain: config.beatGain * 0.9, startAt: now });
+    playNoise(0.05, config.beatGain, musicVolume);
+    playTone({ type: 'square', frequency: config.beatFreq, duration: 0.08, gain: config.beatGain * 0.9, startAt: now, volumeScale: musicVolume });
   }, beatIntervalMs);
 }
 
@@ -244,7 +249,7 @@ function updateMusicVolume() {
   const ctx = ensureAudioContext();
   if (!ctx) return;
   const config = getMusicConfig(music.intensity || 'build');
-  music.gain.gain.setValueAtTime(config.gain * masterVolume, ctx.currentTime);
+  music.gain.gain.setValueAtTime(config.gain * musicVolume, ctx.currentTime);
 }
 
 function setVolume(value, { persist = true } = {}) {
@@ -254,6 +259,20 @@ function setVolume(value, { persist = true } = {}) {
   }
   if (volumeValue) {
     volumeValue.textContent = `${Math.round(masterVolume * 100)}%`;
+  }
+  updateMusicVolume();
+  if (persist) {
+    persistSettings();
+  }
+}
+
+function setMusicVolume(value, { persist = true } = {}) {
+  musicVolume = clamp(value, 0, 1);
+  if (musicVolumeSlider) {
+    musicVolumeSlider.value = Math.round(musicVolume * 100);
+  }
+  if (musicVolumeValue) {
+    musicVolumeValue.textContent = `${Math.round(musicVolume * 100)}%`;
   }
   updateMusicVolume();
   if (persist) {
@@ -284,6 +303,10 @@ function refreshAudioUi() {
     audioButton.textContent = audioEnabled ? 'Audio: On' : 'Audio: Off';
   }
   setVolume(masterVolume, { persist: false });
+  if (musicButton) {
+    musicButton.textContent = musicEnabled ? 'Music: On' : 'Music: Off';
+  }
+  setMusicVolume(musicVolume, { persist: false });
 }
 
 function refreshSensitivityUi() {
@@ -336,7 +359,7 @@ function refreshStatsUi() {
 }
 
 function setMusicIntensity(intensity) {
-  if (!audioEnabled) {
+  if (!audioEnabled || !musicEnabled) {
     stopMusic();
     return;
   }
@@ -391,38 +414,55 @@ function loadSettings() {
       return {
         volume: 1,
         audioEnabled: true,
+        musicEnabled: true,
         effectsEnabled: true,
         statsEnabled: false,
         sensitivity: 1,
         difficulty: 'normal',
         crosshairSize: 24,
         crosshairColor: '#ffffff',
+        musicVolume: 1,
       };
     const parsed = JSON.parse(saved);
     const fallback = {
       volume: 1,
       audioEnabled: true,
+      musicEnabled: true,
       effectsEnabled: true,
       statsEnabled: false,
       sensitivity: 1,
       difficulty: 'normal',
       crosshairSize: 24,
       crosshairColor: '#ffffff',
+      musicVolume: 1,
     };
     const difficulty = difficulties[parsed.difficulty] ? parsed.difficulty : fallback.difficulty;
     return {
       volume: clamp(parsed.volume ?? fallback.volume, 0, 1),
       audioEnabled: parsed.audioEnabled ?? fallback.audioEnabled,
+      musicEnabled: parsed.musicEnabled ?? fallback.musicEnabled,
       effectsEnabled: parsed.effectsEnabled ?? fallback.effectsEnabled,
       statsEnabled: parsed.statsEnabled ?? fallback.statsEnabled,
       sensitivity: clamp(parsed.sensitivity ?? fallback.sensitivity, 0.4, 2),
       difficulty,
       crosshairSize: clamp(parsed.crosshairSize ?? fallback.crosshairSize, 14, 48),
       crosshairColor: normalizeColor(parsed.crosshairColor ?? fallback.crosshairColor, fallback.crosshairColor),
+      musicVolume: clamp(parsed.musicVolume ?? fallback.musicVolume, 0, 1),
     };
   } catch (error) {
     console.warn('Could not load settings, resetting...', error);
-    return { volume: 1, audioEnabled: true, effectsEnabled: true, statsEnabled: false, sensitivity: 1, difficulty: 'normal', crosshairSize: 24, crosshairColor: '#ffffff' };
+    return {
+      volume: 1,
+      audioEnabled: true,
+      musicEnabled: true,
+      effectsEnabled: true,
+      statsEnabled: false,
+      sensitivity: 1,
+      difficulty: 'normal',
+      crosshairSize: 24,
+      crosshairColor: '#ffffff',
+      musicVolume: 1,
+    };
   }
 }
 
@@ -438,12 +478,14 @@ function persistSettings() {
   saveSettings({
     volume: masterVolume,
     audioEnabled,
+    musicEnabled,
     effectsEnabled: state.effectsEnabled,
     statsEnabled,
     sensitivity: mouseSensitivity,
     difficulty: state.difficulty,
     crosshairSize,
     crosshairColor,
+    musicVolume,
   });
 }
 
@@ -479,6 +521,8 @@ let bestRuns = loadBestRuns();
 const savedSettings = loadSettings();
 audioEnabled = savedSettings.audioEnabled ?? true;
 masterVolume = clamp(savedSettings.volume ?? 1, 0, 1);
+musicEnabled = savedSettings.musicEnabled ?? true;
+musicVolume = clamp(savedSettings.musicVolume ?? 1, 0, 1);
 mouseSensitivity = clamp(savedSettings.sensitivity ?? 1, 0.4, 2);
 crosshairSize = clamp(savedSettings.crosshairSize ?? 24, 14, 48);
 crosshairColor = normalizeColor(savedSettings.crosshairColor ?? '#ffffff', '#ffffff');
@@ -2147,6 +2191,19 @@ audioButton.addEventListener('click', () => {
   persistSettings();
 });
 
+musicButton?.addEventListener('click', () => {
+  musicEnabled = !musicEnabled;
+  refreshAudioUi();
+  if (musicEnabled) {
+    if (audioEnabled && state.running && !state.paused) {
+      setMusicIntensity(getMusicIntensityForWave(state.waveIndex));
+    }
+  } else {
+    stopMusic();
+  }
+  persistSettings();
+});
+
 effectsButton?.addEventListener('click', () => {
   state.effectsEnabled = !state.effectsEnabled;
   if (!state.effectsEnabled) {
@@ -2166,6 +2223,11 @@ statsButton?.addEventListener('click', () => {
 volumeSlider?.addEventListener('input', (event) => {
   const value = Number(event.target.value) / 100;
   setVolume(value);
+});
+
+musicVolumeSlider?.addEventListener('input', (event) => {
+  const value = Number(event.target.value) / 100;
+  setMusicVolume(value);
 });
 
 sensitivitySlider?.addEventListener('input', (event) => {
