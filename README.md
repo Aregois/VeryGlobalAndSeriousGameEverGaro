@@ -1,2 +1,13 @@
 # VeryGlobalAndSeriousGameEverGaro
-Very global and serious game ever Garo with Codex
+
+A browser-based 2D pseudo-3D shooter starring Garo, a one-man army fighting waves of alien monsters. The project targets vanilla HTML5 Canvas + CSS + JavaScript with no external libraries and ships as a single-page experience.
+
+## Getting started
+1. Open `index.html` in a modern browser (Chrome/Firefox/Edge). No server required.
+2. Pick a difficulty (Easy, Normal, Hard) to scale enemy health/damage/counts and adjust the score multiplier—your choice is saved for next time—then click **Start** to begin the prototype horde mode. Use **WASD** to move, mouse to aim, hold left click to fire, **1-8** (top row or numpad) to swap between the melee Knife, revolver, pump shotgun, double-barrel, Tommy Gun, Rocket Launcher, Laser Gun, and Cannon, or scroll/Q/E to cycle weapons, **ESC** to pause/unlock the mouse. Use **Toggle Fullscreen** for an immersive view, **Audio: On/Off** to mute or enable the synth SFX/adaptive music bed, the **Effects** toggle to disable shake/flash overlays, the **Sensitivity** slider to tune mouse look speed, the **Volume** slider to set loudness, and the **Crosshair** size/color controls to personalize the reticle (settings persist in local storage). Starting or resuming captures the pointer so the crosshair stays centered for aiming, and switching tabs auto-pauses.
+3. Grab pickups between waves to heal, refill shells, SMG ammo, rockets, energy cells, cannonballs, and top up armor. Collect the purple **Serious Damage** and teal **Speed** buffs to temporarily double outgoing damage and boost movement; the buff bars show their remaining timers so you can plan pushes. A brief intermission timer calls out when the next wave starts, and the HUD wave/left indicators track which wave you’re on and how many remain in the ten-wave gauntlet (Gnaars, Kamikazes, Kleers, Bio-Mech turret fire, charging Werebulls, swooping Harpies, strafing Reptiloids, and the Ugh-Zan III boss). Explosions can hurt you too, so give yourself space. If you fall, hit **Restart** and dive back in; a post-run summary shows difficulty, waves cleared, time, kills, and score.
+4. Screen shake and red flash overlays indicate damage or critical health (the crosshair also flashes on hits and when you’re hurt) so you know when to back off and hunt for armor or medkits before jumping into the next wave. When Ugh-Zan enters, a boss health bar tracks how much more punishment he can take.
+5. The **Best runs (local)** section tracks your highest score, most kills, farthest wave, and fastest clear per difficulty in your browser storage. Use **Reset stats** from the start screen to wipe the local record at any time.
+
+## Development plan
+See `docs/development-plan.md` for the full production roadmap covering architecture, gameplay systems, levels, assets, and testing milestones.
