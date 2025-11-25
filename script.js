@@ -11,6 +11,27 @@ const hud = {
   status: document.getElementById('hud-status'),
 };
 
+const buffHud = {
+  serious: {
+    root: document.getElementById('buff-serious'),
+    fill: document.getElementById('buff-serious-fill'),
+    timer: document.getElementById('buff-serious-timer'),
+    duration: 11000,
+  },
+  haste: {
+    root: document.getElementById('buff-haste'),
+    fill: document.getElementById('buff-haste-fill'),
+    timer: document.getElementById('buff-haste-timer'),
+    duration: 9000,
+  },
+};
+
+const bossHud = {
+  root: document.getElementById('boss-health'),
+  label: document.getElementById('boss-bar-label'),
+  fill: document.getElementById('boss-bar-fill'),
+};
+
 const gameRoot = document.getElementById('game-root');
 const crosshair = document.getElementById('crosshair');
 const overlay = document.getElementById('overlay');
@@ -607,15 +628,49 @@ function getSpeedMultiplier(now = performance.now()) {
   return now < state.buffs.hasteUntil ? 1.25 : 1;
 }
 
+function updateBuffHud(now = performance.now()) {
+  const buffs = [
+    { key: 'serious', label: 'Serious Damage', until: state.buffs.seriousDamageUntil },
+    { key: 'haste', label: 'Speed Boost', until: state.buffs.hasteUntil },
+  ];
+
+  const activeLabels = [];
+  buffs.forEach(({ key, label, until }) => {
+    const ui = buffHud[key];
+    if (!ui?.root) return;
+    const remaining = Math.max(0, until - now);
+    if (remaining > 0) {
+      activeLabels.push(label);
+      const pct = Math.min(1, remaining / ui.duration);
+      ui.fill.style.width = `${(pct * 100).toFixed(1)}%`;
+      ui.timer.textContent = `${Math.ceil(remaining / 1000)}s`;
+      ui.root.classList.add('active');
+    } else {
+      ui.fill.style.width = '0%';
+      ui.timer.textContent = '0s';
+      ui.root.classList.remove('active');
+    }
+  });
+
+  hud.status.textContent = activeLabels.length ? activeLabels.join(' • ') : 'None';
+}
+
+function updateBossHud() {
+  if (!bossHud.root) return;
+  const boss = enemies.find((enemy) => enemy.type === 'UghZan');
+  if (boss) {
+    bossHud.root.classList.add('visible');
+    bossHud.label.textContent = 'Ugh-Zan III';
+    const maxHealth = boss.maxHealth || boss.health || 1;
+    const pct = Math.max(0, Math.min(1, boss.health / maxHealth));
+    bossHud.fill.style.width = `${(pct * 100).toFixed(1)}%`;
+  } else {
+    bossHud.root.classList.remove('visible');
+  }
+}
+
 function updateStatusHud(now = performance.now()) {
-  const active = [];
-  if (now < state.buffs.seriousDamageUntil) {
-    active.push('Serious Damage');
-  }
-  if (now < state.buffs.hasteUntil) {
-    active.push('Speed Boost');
-  }
-  hud.status.textContent = active.length ? active.join(' • ') : 'None';
+  updateBuffHud(now);
 }
 
 function handleInput(delta, timestamp) {
@@ -801,6 +856,7 @@ function spawnEnemy(type) {
     speed: scaledSpeed,
     damage: scaledDamage,
     health: scaledHealth,
+    maxHealth: scaledHealth,
     color: definition.color,
     lastShot: 0,
     nextDive: performance.now() + 1200 + Math.random() * 1400,
@@ -1390,6 +1446,8 @@ function spawnIntermissionPickups() {
 function endRun(victory) {
   state.running = false;
   state.paused = false;
+  updateBuffHud();
+  updateBossHud();
   overlayTitle.textContent = victory ? 'Victory!' : 'Garo has fallen';
   overlayDescription.textContent = victory
     ? 'You felled Ugh-Zan III and survived the full gauntlet. Continue the fight soon.'
@@ -1440,6 +1498,7 @@ function loop(timestamp) {
   updatePickups();
   updateExplosions(delta);
   updateStatusHud(timestamp);
+  updateBossHud();
   render(delta);
   requestAnimationFrame(loop);
 }
@@ -1457,6 +1516,8 @@ function startGame() {
   state.difficulty = difficultySelect?.value ?? 'normal';
   state.buffs.seriousDamageUntil = 0;
   state.buffs.hasteUntil = 0;
+  updateBuffHud();
+  updateBossHud();
   bullets.length = 0;
   enemies.length = 0;
   enemyProjectiles.length = 0;

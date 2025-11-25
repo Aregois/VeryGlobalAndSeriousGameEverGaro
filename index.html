@@ -47,6 +47,28 @@
           <span id="hud-status" class="value">None</span>
         </div>
       </div>
+      <div id="buffs" class="hud-buffs" aria-live="polite">
+        <div id="buff-serious" class="buff">
+          <span class="label">Serious Damage</span>
+          <div class="buff-meter">
+            <div id="buff-serious-fill" class="buff-fill"></div>
+          </div>
+          <span id="buff-serious-timer" class="value">0s</span>
+        </div>
+        <div id="buff-haste" class="buff">
+          <span class="label">Speed Boost</span>
+          <div class="buff-meter">
+            <div id="buff-haste-fill" class="buff-fill"></div>
+          </div>
+          <span id="buff-haste-timer" class="value">0s</span>
+        </div>
+      </div>
+      <div id="boss-health" class="boss-bar" aria-live="polite">
+        <div class="boss-label" id="boss-bar-label">Boss</div>
+        <div class="boss-meter">
+          <div id="boss-bar-fill" class="boss-fill"></div>
+        </div>
+      </div>
     </section>
     <section id="overlay" class="overlay visible">
       <div class="panel">
@@ -71,7 +93,8 @@
         <div id="overlay-summary" class="summary" aria-live="polite"></div>
         <p class="hint">
           WASD to move · Mouse to aim · Left click to fire (explosions hurt) · 1-8 to switch weapons (8 = Knife) · ESC to
-          pause/unlock the mouse · Starting or resuming captures the pointer for centered crosshair control · Use the
+          pause/unlock the mouse · Starting or resuming captures the pointer for centered crosshair control · Buff bars show
+          remaining Serious Damage/Speed time and a boss bar appears for Ugh-Zan · Use the
           difficulty dropdown to scale enemy intensity and scoring · Grab Serious Damage and Speed pickups to stack temporary
           buffs · Use the Audio toggle to silence or enable the synth SFX · Best runs are saved per difficulty in your browser
           and can be reset anytime

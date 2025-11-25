@@ -92,6 +92,106 @@ body {
   min-width: 80px;
 }
 
+.hud-buffs {
+  display: flex;
+  gap: 12px;
+  background: rgba(8, 12, 18, 0.7);
+  padding: 8px 12px;
+  border: 1px solid rgba(148, 171, 203, 0.22);
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.buff {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 150px;
+  opacity: 0.35;
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.buff.active {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.buff-meter {
+  flex: 1;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.buff-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  transition: width 120ms ease;
+}
+
+#buff-serious .buff-fill {
+  background: linear-gradient(90deg, #bf34ff, #ff8ac7);
+}
+
+#buff-haste .buff-fill {
+  background: linear-gradient(90deg, #2dd4bf, #7ce7ff);
+}
+
+.buff .value {
+  min-width: 34px;
+  text-align: right;
+}
+
+.boss-bar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 360px;
+  max-width: 520px;
+  width: 60%;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, rgba(38, 16, 6, 0.82), rgba(50, 16, 12, 0.86));
+  border: 1px solid rgba(255, 135, 84, 0.5);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  display: none;
+  gap: 10px;
+  align-items: center;
+  pointer-events: none;
+}
+
+.boss-bar.visible {
+  display: flex;
+}
+
+.boss-label {
+  font-weight: 800;
+  color: #ffd9b5;
+  letter-spacing: 0.6px;
+  min-width: 120px;
+}
+
+.boss-meter {
+  flex: 1;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 219, 181, 0.35);
+}
+
+.boss-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #ff8c42, #ff2d55);
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.25);
+  transition: width 120ms ease;
+}
+
 .label {
   font-size: 12px;
   color: #9fb3d1;
