@@ -1574,7 +1574,7 @@ function updatePickups() {
       const def = pickupTypes[pickup.type];
       if (def && typeof def.apply === 'function') {
         def.apply();
-        if (pickup.type === 'serious' || pickup.type === 'speed') {
+        if (pickup.type === 'serious' || pickup.type === 'haste') {
           playSfx('buff');
         } else {
           playSfx('pickup');
@@ -1645,7 +1645,8 @@ function endRun(victory) {
 
 function loop(timestamp) {
   if (!state.running || state.paused) return;
-  const delta = (timestamp - state.lastTime) / 1000;
+  const frameMs = Math.max(0, timestamp - state.lastTime);
+  const delta = Math.min(0.1, frameMs / 1000);
   state.lastTime = timestamp;
 
   if (state.waveDelayUntil && timestamp >= state.waveDelayUntil) {
