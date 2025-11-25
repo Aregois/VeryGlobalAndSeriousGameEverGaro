@@ -260,6 +260,8 @@ const state = {
   kills: 0,
   difficulty: 'normal',
   startTime: 0,
+  screenShake: 0,
+  hurtFlash: 0,
   buffs: {
     seriousDamageUntil: 0,
     hasteUntil: 0,
@@ -949,8 +951,37 @@ function drawPickups() {
   });
 }
 
+function applyScreenShake(delta) {
+  if (state.screenShake <= 0) return;
+  const magnitude = state.screenShake * 8;
+  const offsetX = (Math.random() - 0.5) * magnitude;
+  const offsetY = (Math.random() - 0.5) * magnitude;
+  ctx.translate(offsetX, offsetY);
+  state.screenShake = Math.max(0, state.screenShake - delta * 2);
+}
+
+function drawDamageOverlays(delta) {
+  if (state.hurtFlash > 0) {
+    ctx.save();
+    ctx.fillStyle = `rgba(255, 64, 64, ${Math.min(0.6, state.hurtFlash) * 0.5})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+    state.hurtFlash = Math.max(0, state.hurtFlash - delta * 1.8);
+  }
+
+  const lowHealthRatio = Math.max(0, 1 - player.health / 40);
+  if (lowHealthRatio > 0) {
+    ctx.save();
+    ctx.fillStyle = `rgba(160, 0, 0, ${0.18 * lowHealthRatio})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+  }
+}
+
 function render(delta) {
   resizeCanvas();
+  ctx.save();
+  applyScreenShake(delta);
   drawBackdrop(delta);
   drawPickups();
   drawPlayer();
@@ -959,7 +990,9 @@ function render(delta) {
   drawEnemyProjectiles();
   drawShockwaves();
   drawEnemies();
+  ctx.restore();
   drawCrosshair();
+  drawDamageOverlays(delta);
 }
 
 function damagePlayer(amount) {
@@ -972,6 +1005,8 @@ function damagePlayer(amount) {
   player.health -= remaining;
   updateHud();
   playSfx('hurt');
+  state.hurtFlash = Math.min(1, state.hurtFlash + 0.6);
+  state.screenShake = Math.min(1, state.screenShake + 0.35);
   if (player.health <= 0) {
     endRun(false);
   }
@@ -998,6 +1033,7 @@ function detonate(bullet, x, y) {
   if (!bullet.explosionRadius) return;
   explosions.push({ x, y, radius: bullet.explosionRadius, life: 0.25, maxLife: 0.25 });
   playSfx('explosion');
+  state.screenShake = Math.min(1, state.screenShake + 0.25);
   const damage = bullet.damage * getDamageMultiplier();
 
   for (let j = enemies.length - 1; j >= 0; j -= 1) {
