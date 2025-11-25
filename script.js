@@ -48,10 +48,13 @@ const audioButton = document.getElementById('audio-button');
 const effectsButton = document.getElementById('effects-button');
 const volumeSlider = document.getElementById('volume-slider');
 const volumeValue = document.getElementById('volume-value');
+const sensitivitySlider = document.getElementById('sensitivity-slider');
+const sensitivityValue = document.getElementById('sensitivity-value');
 const fullscreenButton = document.getElementById('fullscreen-button');
 
 let audioEnabled = true;
 let masterVolume = 1;
+let mouseSensitivity = 1;
 let audioContext = null;
 let music = {
   oscillator: null,
@@ -246,11 +249,28 @@ function setVolume(value, { persist = true } = {}) {
   }
 }
 
+function setSensitivity(value, { persist = true } = {}) {
+  mouseSensitivity = clamp(value, 0.4, 2);
+  if (sensitivitySlider) {
+    sensitivitySlider.value = Math.round(mouseSensitivity * 100);
+  }
+  if (sensitivityValue) {
+    sensitivityValue.textContent = `${Math.round(mouseSensitivity * 100)}%`;
+  }
+  if (persist) {
+    persistSettings();
+  }
+}
+
 function refreshAudioUi() {
   if (audioButton) {
     audioButton.textContent = audioEnabled ? 'Audio: On' : 'Audio: Off';
   }
   setVolume(masterVolume, { persist: false });
+}
+
+function refreshSensitivityUi() {
+  setSensitivity(mouseSensitivity, { persist: false });
 }
 
 function refreshEffectsUi() {
@@ -311,16 +331,17 @@ const BEST_RUNS_KEY = 'garoBestRuns';
 function loadSettings() {
   try {
     const saved = localStorage.getItem(SETTINGS_KEY);
-    if (!saved) return { volume: 1, audioEnabled: true, effectsEnabled: true };
+    if (!saved) return { volume: 1, audioEnabled: true, effectsEnabled: true, sensitivity: 1 };
     const parsed = JSON.parse(saved);
     return {
       volume: clamp(parsed.volume ?? 1, 0, 1),
       audioEnabled: parsed.audioEnabled ?? true,
       effectsEnabled: parsed.effectsEnabled ?? true,
+      sensitivity: clamp(parsed.sensitivity ?? 1, 0.4, 2),
     };
   } catch (error) {
     console.warn('Could not load settings, resetting...', error);
-    return { volume: 1, audioEnabled: true, effectsEnabled: true };
+    return { volume: 1, audioEnabled: true, effectsEnabled: true, sensitivity: 1 };
   }
 }
 
@@ -333,7 +354,12 @@ function saveSettings(value) {
 }
 
 function persistSettings() {
-  saveSettings({ volume: masterVolume, audioEnabled, effectsEnabled: state.effectsEnabled });
+  saveSettings({
+    volume: masterVolume,
+    audioEnabled,
+    effectsEnabled: state.effectsEnabled,
+    sensitivity: mouseSensitivity,
+  });
 }
 
 function createDefaultBestRuns() {
@@ -368,6 +394,7 @@ let bestRuns = loadBestRuns();
 const savedSettings = loadSettings();
 audioEnabled = savedSettings.audioEnabled ?? true;
 masterVolume = clamp(savedSettings.volume ?? 1, 0, 1);
+mouseSensitivity = clamp(savedSettings.sensitivity ?? 1, 0.4, 2);
 
 function formatDuration(seconds) {
   const mins = Math.floor(seconds / 60);
@@ -1884,8 +1911,8 @@ window.addEventListener(
 
 window.addEventListener('mousemove', (event) => {
   if (document.pointerLockElement === canvas) {
-    input.mouse.x = clamp(input.mouse.x + event.movementX, 0, state.width);
-    input.mouse.y = clamp(input.mouse.y + event.movementY, 0, state.height);
+    input.mouse.x = clamp(input.mouse.x + event.movementX * mouseSensitivity, 0, state.width);
+    input.mouse.y = clamp(input.mouse.y + event.movementY * mouseSensitivity, 0, state.height);
   } else {
     const { x, y } = screenToWorld(event.clientX, event.clientY);
     input.mouse.x = x;
@@ -1963,6 +1990,11 @@ volumeSlider?.addEventListener('input', (event) => {
   setVolume(value);
 });
 
+sensitivitySlider?.addEventListener('input', (event) => {
+  const value = Number(event.target.value) / 100;
+  setSensitivity(value);
+});
+
 resizeCanvas();
 updateHud();
 renderBestRuns();
@@ -1970,3 +2002,4 @@ centerCrosshair();
 refreshCrosshairVisibility();
 refreshAudioUi();
 refreshEffectsUi();
+refreshSensitivityUi();
