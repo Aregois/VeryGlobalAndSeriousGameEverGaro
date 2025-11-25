@@ -45,6 +45,7 @@ const overlaySummary = document.getElementById('overlay-summary');
 const bestRunsContainer = document.getElementById('best-runs');
 const resetProgressButton = document.getElementById('reset-progress');
 const audioButton = document.getElementById('audio-button');
+const effectsButton = document.getElementById('effects-button');
 const volumeSlider = document.getElementById('volume-slider');
 const volumeValue = document.getElementById('volume-value');
 const fullscreenButton = document.getElementById('fullscreen-button');
@@ -241,7 +242,7 @@ function setVolume(value, { persist = true } = {}) {
   }
   updateMusicVolume();
   if (persist) {
-    saveSettings({ volume: masterVolume, audioEnabled });
+    persistSettings();
   }
 }
 
@@ -250,6 +251,12 @@ function refreshAudioUi() {
     audioButton.textContent = audioEnabled ? 'Audio: On' : 'Audio: Off';
   }
   setVolume(masterVolume, { persist: false });
+}
+
+function refreshEffectsUi() {
+  if (effectsButton) {
+    effectsButton.textContent = state.effectsEnabled ? 'Effects: On' : 'Effects: Off';
+  }
 }
 
 function setMusicIntensity(intensity) {
@@ -304,15 +311,16 @@ const BEST_RUNS_KEY = 'garoBestRuns';
 function loadSettings() {
   try {
     const saved = localStorage.getItem(SETTINGS_KEY);
-    if (!saved) return { volume: 1, audioEnabled: true };
+    if (!saved) return { volume: 1, audioEnabled: true, effectsEnabled: true };
     const parsed = JSON.parse(saved);
     return {
       volume: clamp(parsed.volume ?? 1, 0, 1),
       audioEnabled: parsed.audioEnabled ?? true,
+      effectsEnabled: parsed.effectsEnabled ?? true,
     };
   } catch (error) {
     console.warn('Could not load settings, resetting...', error);
-    return { volume: 1, audioEnabled: true };
+    return { volume: 1, audioEnabled: true, effectsEnabled: true };
   }
 }
 
@@ -322,6 +330,10 @@ function saveSettings(value) {
   } catch (error) {
     console.warn('Could not persist settings', error);
   }
+}
+
+function persistSettings() {
+  saveSettings({ volume: masterVolume, audioEnabled, effectsEnabled: state.effectsEnabled });
 }
 
 function createDefaultBestRuns() {
@@ -426,6 +438,7 @@ const state = {
   startTime: 0,
   screenShake: 0,
   hurtFlash: 0,
+  effectsEnabled: savedSettings.effectsEnabled ?? true,
   buffs: {
     seriousDamageUntil: 0,
     hasteUntil: 0,
@@ -744,6 +757,11 @@ function screenToWorld(x, y) {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function addScreenShake(amount) {
+  if (!state.effectsEnabled) return;
+  state.screenShake = Math.min(1, state.screenShake + amount);
 }
 
 function setCrosshairPosition(x, y) {
@@ -1172,6 +1190,10 @@ function drawPickups() {
 }
 
 function applyScreenShake(delta) {
+  if (!state.effectsEnabled) {
+    state.screenShake = 0;
+    return;
+  }
   if (state.screenShake <= 0) return;
   const magnitude = state.screenShake * 8;
   const offsetX = (Math.random() - 0.5) * magnitude;
@@ -1181,12 +1203,14 @@ function applyScreenShake(delta) {
 }
 
 function drawDamageOverlays(delta) {
-  if (state.hurtFlash > 0) {
+  if (state.effectsEnabled && state.hurtFlash > 0) {
     ctx.save();
     ctx.fillStyle = `rgba(255, 64, 64, ${Math.min(0.6, state.hurtFlash) * 0.5})`;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
     state.hurtFlash = Math.max(0, state.hurtFlash - delta * 1.8);
+  } else if (!state.effectsEnabled) {
+    state.hurtFlash = 0;
   }
 
   const lowHealthRatio = Math.max(0, 1 - player.health / 40);
@@ -1225,8 +1249,12 @@ function damagePlayer(amount) {
   player.health -= remaining;
   updateHud();
   playSfx('hurt');
-  state.hurtFlash = Math.min(1, state.hurtFlash + 0.6);
-  state.screenShake = Math.min(1, state.screenShake + 0.35);
+  if (state.effectsEnabled) {
+    state.hurtFlash = Math.min(1, state.hurtFlash + 0.6);
+    addScreenShake(0.35);
+  } else {
+    state.hurtFlash = 0;
+  }
   if (player.health <= 0) {
     endRun(false);
   }
@@ -1253,7 +1281,7 @@ function detonate(bullet, x, y) {
   if (!bullet.explosionRadius) return;
   explosions.push({ x, y, radius: bullet.explosionRadius, life: 0.25, maxLife: 0.25 });
   playSfx('explosion');
-  state.screenShake = Math.min(1, state.screenShake + 0.25);
+  addScreenShake(0.25);
   const damage = bullet.damage * getDamageMultiplier();
 
   for (let j = enemies.length - 1; j >= 0; j -= 1) {
@@ -1884,6 +1912,12 @@ window.addEventListener('blur', () => {
   if (state.running) pauseGame();
 });
 
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state.running && !state.paused) {
+    pauseGame();
+  }
+});
+
 document.addEventListener('pointerlockchange', handlePointerLockChange);
 canvas.addEventListener('click', () => {
   if (state.running && !state.paused && canvas.requestPointerLock) {
@@ -1912,7 +1946,17 @@ audioButton.addEventListener('click', () => {
   } else {
     stopMusic();
   }
-  saveSettings({ volume: masterVolume, audioEnabled });
+  persistSettings();
+});
+
+effectsButton?.addEventListener('click', () => {
+  state.effectsEnabled = !state.effectsEnabled;
+  if (!state.effectsEnabled) {
+    state.screenShake = 0;
+    state.hurtFlash = 0;
+  }
+  refreshEffectsUi();
+  persistSettings();
 });
 volumeSlider?.addEventListener('input', (event) => {
   const value = Number(event.target.value) / 100;
@@ -1925,3 +1969,4 @@ renderBestRuns();
 centerCrosshair();
 refreshCrosshairVisibility();
 refreshAudioUi();
+refreshEffectsUi();
