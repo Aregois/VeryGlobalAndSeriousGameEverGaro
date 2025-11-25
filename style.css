@@ -76,6 +76,16 @@ body {
   accent-color: #2cf08e;
 }
 
+.control-card input[type='color'] {
+  width: 36px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: #0f1724;
+  cursor: pointer;
+}
+
 .control-card span {
   font-size: 13px;
   min-width: 40px;
@@ -387,13 +397,16 @@ button:focus-visible {
 }
 
 .crosshair {
+  --crosshair-size: 24px;
+  --crosshair-color: rgba(255, 255, 255, 0.75);
+  --crosshair-shadow: rgba(255, 255, 255, 0.35);
   position: absolute;
-  width: 24px;
-  height: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.6);
+  width: var(--crosshair-size);
+  height: var(--crosshair-size);
+  border: 2px solid var(--crosshair-color);
   border-radius: 50%;
   pointer-events: none;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 8px var(--crosshair-shadow);
   transform: translate(-9999px, -9999px);
   display: none;
 }
@@ -402,7 +415,7 @@ button:focus-visible {
 .crosshair::after {
   content: "";
   position: absolute;
-  background: rgba(255, 255, 255, 0.75);
+  background: var(--crosshair-color);
 }
 
 .crosshair::before {

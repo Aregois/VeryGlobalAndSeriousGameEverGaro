@@ -51,11 +51,18 @@ const volumeSlider = document.getElementById('volume-slider');
 const volumeValue = document.getElementById('volume-value');
 const sensitivitySlider = document.getElementById('sensitivity-slider');
 const sensitivityValue = document.getElementById('sensitivity-value');
+const crosshairSizeSlider = document.getElementById('crosshair-size');
+const crosshairSizeValue = document.getElementById('crosshair-size-value');
+const crosshairColorInput = document.getElementById('crosshair-color');
 const fullscreenButton = document.getElementById('fullscreen-button');
 
 let audioEnabled = true;
 let masterVolume = 1;
 let mouseSensitivity = 1;
+let crosshairSize = 24;
+let crosshairColor = '#ffffff';
+let crosshairFlashUntil = 0;
+let crosshairFlashColor = null;
 let audioContext = null;
 let music = {
   oscillator: null,
@@ -238,12 +245,12 @@ function updateMusicVolume() {
 
 function setVolume(value, { persist = true } = {}) {
   masterVolume = clamp(value, 0, 1);
-if (volumeSlider) {
-  volumeSlider.value = Math.round(masterVolume * 100);
-}
-if (volumeValue) {
-  volumeValue.textContent = `${Math.round(masterVolume * 100)}%`;
-}
+  if (volumeSlider) {
+    volumeSlider.value = Math.round(masterVolume * 100);
+  }
+  if (volumeValue) {
+    volumeValue.textContent = `${Math.round(masterVolume * 100)}%`;
+  }
   updateMusicVolume();
   if (persist) {
     persistSettings();
@@ -277,6 +284,36 @@ function refreshAudioUi() {
 
 function refreshSensitivityUi() {
   setSensitivity(mouseSensitivity, { persist: false });
+}
+
+function setCrosshairSize(value, { persist = true } = {}) {
+  crosshairSize = clamp(Math.round(value), 14, 48);
+  if (crosshairSizeSlider) {
+    crosshairSizeSlider.value = crosshairSize;
+  }
+  if (crosshairSizeValue) {
+    crosshairSizeValue.textContent = `${crosshairSize}px`;
+  }
+  applyCrosshairStyle();
+  if (persist) {
+    persistSettings();
+  }
+}
+
+function setCrosshairColor(value, { persist = true } = {}) {
+  crosshairColor = normalizeColor(value, '#ffffff');
+  if (crosshairColorInput) {
+    crosshairColorInput.value = crosshairColor;
+  }
+  applyCrosshairStyle();
+  if (persist) {
+    persistSettings();
+  }
+}
+
+function refreshCrosshairUi() {
+  setCrosshairSize(crosshairSize, { persist: false });
+  setCrosshairColor(crosshairColor, { persist: false });
 }
 
 function refreshEffectsUi() {
@@ -338,9 +375,25 @@ function loadSettings() {
   try {
     const saved = localStorage.getItem(SETTINGS_KEY);
     if (!saved)
-      return { volume: 1, audioEnabled: true, effectsEnabled: true, sensitivity: 1, difficulty: 'normal' };
+      return {
+        volume: 1,
+        audioEnabled: true,
+        effectsEnabled: true,
+        sensitivity: 1,
+        difficulty: 'normal',
+        crosshairSize: 24,
+        crosshairColor: '#ffffff',
+      };
     const parsed = JSON.parse(saved);
-    const fallback = { volume: 1, audioEnabled: true, effectsEnabled: true, sensitivity: 1, difficulty: 'normal' };
+    const fallback = {
+      volume: 1,
+      audioEnabled: true,
+      effectsEnabled: true,
+      sensitivity: 1,
+      difficulty: 'normal',
+      crosshairSize: 24,
+      crosshairColor: '#ffffff',
+    };
     const difficulty = difficulties[parsed.difficulty] ? parsed.difficulty : fallback.difficulty;
     return {
       volume: clamp(parsed.volume ?? fallback.volume, 0, 1),
@@ -348,10 +401,12 @@ function loadSettings() {
       effectsEnabled: parsed.effectsEnabled ?? fallback.effectsEnabled,
       sensitivity: clamp(parsed.sensitivity ?? fallback.sensitivity, 0.4, 2),
       difficulty,
+      crosshairSize: clamp(parsed.crosshairSize ?? fallback.crosshairSize, 14, 48),
+      crosshairColor: normalizeColor(parsed.crosshairColor ?? fallback.crosshairColor, fallback.crosshairColor),
     };
   } catch (error) {
     console.warn('Could not load settings, resetting...', error);
-    return { volume: 1, audioEnabled: true, effectsEnabled: true, sensitivity: 1, difficulty: 'normal' };
+    return { volume: 1, audioEnabled: true, effectsEnabled: true, sensitivity: 1, difficulty: 'normal', crosshairSize: 24, crosshairColor: '#ffffff' };
   }
 }
 
@@ -370,6 +425,8 @@ function persistSettings() {
     effectsEnabled: state.effectsEnabled,
     sensitivity: mouseSensitivity,
     difficulty: state.difficulty,
+    crosshairSize,
+    crosshairColor,
   });
 }
 
@@ -406,6 +463,8 @@ const savedSettings = loadSettings();
 audioEnabled = savedSettings.audioEnabled ?? true;
 masterVolume = clamp(savedSettings.volume ?? 1, 0, 1);
 mouseSensitivity = clamp(savedSettings.sensitivity ?? 1, 0.4, 2);
+crosshairSize = clamp(savedSettings.crosshairSize ?? 24, 14, 48);
+crosshairColor = normalizeColor(savedSettings.crosshairColor ?? '#ffffff', '#ffffff');
 const savedDifficulty = difficulties[savedSettings.difficulty] ? savedSettings.difficulty : 'normal';
 
 function formatDuration(seconds) {
@@ -800,6 +859,43 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
+function normalizeColor(value, fallback = '#ffffff') {
+  if (typeof value !== 'string') return fallback;
+  const match = /^#([0-9a-fA-F]{6})$/.exec(value.trim());
+  return match ? `#${match[1].toLowerCase()}` : fallback;
+}
+
+function hexToRgba(hex, alpha = 1) {
+  const sanitized = normalizeColor(hex, '#ffffff');
+  const numeric = parseInt(sanitized.slice(1), 16);
+  const r = (numeric >> 16) & 255;
+  const g = (numeric >> 8) & 255;
+  const b = numeric & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function getCurrentCrosshairColor() {
+  const now = performance.now();
+  if (crosshairFlashColor && crosshairFlashUntil > now) {
+    return crosshairFlashColor;
+  }
+  return crosshairColor;
+}
+
+function applyCrosshairStyle() {
+  if (!crosshair) return;
+  const activeColor = getCurrentCrosshairColor();
+  crosshair.style.setProperty('--crosshair-size', `${crosshairSize}px`);
+  crosshair.style.setProperty('--crosshair-color', hexToRgba(activeColor, 0.75));
+  crosshair.style.setProperty('--crosshair-shadow', hexToRgba(activeColor, 0.35));
+  setCrosshairPosition(input.mouse.x, input.mouse.y);
+}
+
+function flashCrosshair(type) {
+  crosshairFlashColor = type === 'hurt' ? '#ef4444' : '#22c55e';
+  crosshairFlashUntil = performance.now() + 160;
+}
+
 function addScreenShake(amount) {
   if (!state.effectsEnabled) return;
   state.screenShake = Math.min(1, state.screenShake + amount);
@@ -807,7 +903,8 @@ function addScreenShake(amount) {
 
 function setCrosshairPosition(x, y) {
   if (!crosshair) return;
-  crosshair.style.transform = `translate(${x - 12}px, ${y - 12}px)`;
+  const half = crosshairSize / 2;
+  crosshair.style.transform = `translate(${x - half}px, ${y - half}px)`;
 }
 
 function centerCrosshair() {
@@ -932,10 +1029,11 @@ function handleInput(delta, timestamp) {
 }
 
 function drawCrosshair() {
-  const size = 10;
+  const size = crosshairSize * 0.45;
+  const stroke = hexToRgba(getCurrentCrosshairColor(), 0.7);
   ctx.save();
   ctx.translate(input.mouse.x, input.mouse.y);
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+  ctx.strokeStyle = stroke;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(-size, 0);
@@ -1001,6 +1099,9 @@ function tryShoot(timestamp) {
 
     lastShotTime = timestamp;
     playSfx('knife');
+    if (hits.length > 0) {
+      flashCrosshair('hit');
+    }
     if (anyKill) {
       updateStatusHud(timestamp);
       updateHud();
@@ -1286,6 +1387,7 @@ function render(delta) {
   drawShockwaves();
   drawEnemies();
   ctx.restore();
+  applyCrosshairStyle();
   drawCrosshair();
   drawDamageOverlays(delta);
 }
@@ -1300,6 +1402,7 @@ function damagePlayer(amount) {
   player.health -= remaining;
   updateHud();
   playSfx('hurt');
+  flashCrosshair('hurt');
   if (state.effectsEnabled) {
     state.hurtFlash = Math.min(1, state.hurtFlash + 0.6);
     addScreenShake(0.35);
@@ -1329,17 +1432,19 @@ function registerKill(type) {
 }
 
 function detonate(bullet, x, y) {
-  if (!bullet.explosionRadius) return;
+  if (!bullet.explosionRadius) return false;
   explosions.push({ x, y, radius: bullet.explosionRadius, life: 0.25, maxLife: 0.25 });
   playSfx('explosion');
   addScreenShake(0.25);
   const damage = bullet.damage * getDamageMultiplier();
+  let hitEnemy = false;
 
   for (let j = enemies.length - 1; j >= 0; j -= 1) {
     const enemy = enemies[j];
     const dist = Math.hypot(enemy.x - x, enemy.y - y);
     if (dist <= enemy.radius + bullet.explosionRadius) {
       enemy.health -= damage;
+      hitEnemy = true;
       if (enemy.health <= 0) {
         registerKill(enemy.type);
         enemies.splice(j, 1);
@@ -1353,6 +1458,8 @@ function detonate(bullet, x, y) {
       damagePlayer(bullet.damage * bullet.selfDamage);
     }
   }
+
+  return hitEnemy;
 }
 
 function updateBullets(delta) {
@@ -1372,7 +1479,10 @@ function updateBullets(delta) {
       bullet.y > state.height + 20
     ) {
       if (bullet.explosionRadius) {
-        detonate(bullet, bullet.x, bullet.y);
+        const hitSomething = detonate(bullet, bullet.x, bullet.y);
+        if (hitSomething) {
+          flashCrosshair('hit');
+        }
       }
       bullets.splice(i, 1);
       continue;
@@ -1384,13 +1494,17 @@ function updateBullets(delta) {
       const hitRange = enemy.radius + (bullet.radius ?? 4);
       if (dist <= hitRange) {
         if (bullet.explosionRadius) {
-          detonate(bullet, bullet.x, bullet.y);
+          const hitSomething = detonate(bullet, bullet.x, bullet.y);
+          if (hitSomething) {
+            flashCrosshair('hit');
+          }
         } else {
           enemy.health -= bullet.damage * damageMultiplier;
           if (enemy.health <= 0) {
             registerKill(enemy.type);
             enemies.splice(j, 1);
           }
+          flashCrosshair('hit');
         }
         bullets.splice(i, 1);
         break;
@@ -2020,6 +2134,15 @@ sensitivitySlider?.addEventListener('input', (event) => {
   setSensitivity(value);
 });
 
+crosshairSizeSlider?.addEventListener('input', (event) => {
+  const value = Number(event.target.value);
+  setCrosshairSize(value);
+});
+
+crosshairColorInput?.addEventListener('input', (event) => {
+  setCrosshairColor(event.target.value);
+});
+
 difficultySelect?.addEventListener('change', (event) => {
   const value = event.target.value;
   if (!difficulties[value]) return;
@@ -2035,3 +2158,4 @@ refreshCrosshairVisibility();
 refreshAudioUi();
 refreshEffectsUi();
 refreshSensitivityUi();
+refreshCrosshairUi();
