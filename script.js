@@ -19,6 +19,8 @@ const startButton = document.getElementById('start-button');
 const resumeButton = document.getElementById('resume-button');
 const difficultySelect = document.getElementById('difficulty-select');
 const overlaySummary = document.getElementById('overlay-summary');
+const bestRunsContainer = document.getElementById('best-runs');
+const resetProgressButton = document.getElementById('reset-progress');
 const audioButton = document.getElementById('audio-button');
 const fullscreenButton = document.getElementById('fullscreen-button');
 
@@ -156,6 +158,92 @@ const difficulties = {
 
 function getDifficultySettings() {
   return difficulties[state.difficulty] || difficulties.normal;
+}
+
+const BEST_RUNS_KEY = 'garoBestRuns';
+
+function createDefaultBestRuns() {
+  return Object.keys(difficulties).reduce((acc, key) => {
+    acc[key] = { score: 0, kills: 0, waves: 0, time: 0 };
+    return acc;
+  }, {});
+}
+
+function loadBestRuns() {
+  try {
+    const saved = localStorage.getItem(BEST_RUNS_KEY);
+    if (!saved) return createDefaultBestRuns();
+    const parsed = JSON.parse(saved);
+    return { ...createDefaultBestRuns(), ...parsed };
+  } catch (error) {
+    console.warn('Could not load best runs, resetting...', error);
+    return createDefaultBestRuns();
+  }
+}
+
+function saveBestRuns(value) {
+  try {
+    localStorage.setItem(BEST_RUNS_KEY, JSON.stringify(value));
+  } catch (error) {
+    console.warn('Could not persist best runs', error);
+  }
+}
+
+let bestRuns = loadBestRuns();
+
+function formatDuration(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = String(seconds % 60).padStart(2, '0');
+  return `${mins}m ${secs}s`;
+}
+
+function renderBestRuns() {
+  if (!bestRunsContainer) return;
+  bestRunsContainer.innerHTML = Object.entries(difficulties)
+    .map(([key, def]) => {
+      const entry = bestRuns[key] || { score: 0, kills: 0, waves: 0, time: 0 };
+      const hasData = entry.score > 0 || entry.kills > 0 || entry.waves > 0 || entry.time > 0;
+      const bestScore = hasData ? Math.round(entry.score) : '—';
+      const bestWaves = hasData ? entry.waves : '—';
+      const bestKills = hasData ? entry.kills : '—';
+      const bestTime = hasData && entry.time > 0 ? formatDuration(entry.time) : '—';
+      return `
+        <div class="best-row">
+          <div class="best-label">${def.label}</div>
+          <div class="best-stat"><span>Score</span><strong>${bestScore}</strong></div>
+          <div class="best-stat"><span>Waves</span><strong>${bestWaves}</strong></div>
+          <div class="best-stat"><span>Kills</span><strong>${bestKills}</strong></div>
+          <div class="best-stat"><span>Fastest clear</span><strong>${bestTime}</strong></div>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+function updateBestRuns(difficulty, stats) {
+  const entry = bestRuns[difficulty] || { score: 0, kills: 0, waves: 0, time: 0 };
+  let changed = false;
+  if (stats.score > entry.score) {
+    entry.score = stats.score;
+    changed = true;
+  }
+  if (stats.kills > entry.kills) {
+    entry.kills = stats.kills;
+    changed = true;
+  }
+  if (stats.waves > entry.waves) {
+    entry.waves = stats.waves;
+    changed = true;
+  }
+  if (stats.victory && stats.time > 0 && (entry.time === 0 || stats.time < entry.time)) {
+    entry.time = stats.time;
+    changed = true;
+  }
+  if (changed) {
+    bestRuns[difficulty] = entry;
+    saveBestRuns(bestRuns);
+    renderBestRuns();
+  }
 }
 
 const state = {
@@ -1241,6 +1329,13 @@ function endRun(victory) {
   const elapsed = Math.max(0, Math.round((performance.now() - state.startTime) / 1000));
   const minutes = Math.floor(elapsed / 60);
   const seconds = String(elapsed % 60).padStart(2, '0');
+  updateBestRuns(state.difficulty, {
+    score: Math.round(state.score),
+    kills: state.kills,
+    waves: wavesCleared,
+    time: elapsed,
+    victory,
+  });
   overlaySummary.innerHTML = `
     <div><strong>Difficulty:</strong> ${settings.label}</div>
     <div><strong>Score:</strong> ${Math.round(state.score)}</div>
@@ -1457,6 +1552,13 @@ window.addEventListener('blur', () => {
 startButton.addEventListener('click', startGame);
 resumeButton.addEventListener('click', resumeGame);
 fullscreenButton.addEventListener('click', toggleFullscreen);
+function resetBestRuns() {
+  bestRuns = createDefaultBestRuns();
+  saveBestRuns(bestRuns);
+  renderBestRuns();
+}
+
+resetProgressButton?.addEventListener('click', resetBestRuns);
 audioButton.addEventListener('click', () => {
   audioEnabled = !audioEnabled;
   audioButton.textContent = audioEnabled ? 'Audio: On' : 'Audio: Off';
@@ -1467,3 +1569,4 @@ audioButton.addEventListener('click', () => {
 
 resizeCanvas();
 updateHud();
+renderBestRuns();

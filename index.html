@@ -60,11 +60,19 @@
           </select>
         </div>
         <button id="start-button" type="button">Start</button>
+        <div class="best-panel">
+          <div class="best-header">
+            <h2>Best runs (local)</h2>
+            <button id="reset-progress" type="button">Reset stats</button>
+          </div>
+          <div id="best-runs" class="best-runs" aria-live="polite"></div>
+        </div>
         <div id="overlay-summary" class="summary" aria-live="polite"></div>
         <p class="hint">
           WASD to move · Mouse to aim · Left click to fire (explosions hurt) · 1-8 to switch weapons (8 = Knife) · ESC to
           pause · Use the difficulty dropdown to scale enemy intensity and scoring · Grab Serious Damage and Speed pickups to
-          stack temporary buffs · Use the Audio toggle to silence or enable the synth SFX
+          stack temporary buffs · Use the Audio toggle to silence or enable the synth SFX · Best runs are saved per difficulty
+          in your browser and can be reset anytime
         </p>
       </div>
     </section>
