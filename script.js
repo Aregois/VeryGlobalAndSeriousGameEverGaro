@@ -7,6 +7,7 @@ const hud = {
   weapon: document.getElementById('hud-weapon'),
   ammo: document.getElementById('hud-ammo'),
   wave: document.getElementById('hud-wave'),
+  remaining: document.getElementById('hud-remaining'),
   score: document.getElementById('hud-score'),
   status: document.getElementById('hud-status'),
 };
@@ -825,6 +826,8 @@ function updateHud() {
   const ammo = player.ammoPools[ammoKey];
   hud.ammo.textContent = ammo === Infinity ? '∞' : ammo;
   hud.wave.textContent = `${state.waveIndex + 1} / ${waves.length}`;
+  const wavesLeft = Math.max(0, waves.length - (state.waveIndex + 1));
+  hud.remaining.textContent = wavesLeft.toFixed(0);
   hud.score.textContent = state.score.toFixed(0);
 }
 
@@ -1669,6 +1672,7 @@ function endRun(victory) {
   stopMusic();
   updateBuffHud();
   updateBossHud();
+  updateHud();
   overlayTitle.textContent = victory ? 'Victory!' : 'Garo has fallen';
   overlayDescription.textContent = victory
     ? 'You felled Ugh-Zan III and survived the full gauntlet. Continue the fight soon.'
