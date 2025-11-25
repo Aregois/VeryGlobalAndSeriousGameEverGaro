@@ -29,6 +29,11 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  cursor: crosshair;
+}
+
+#game-root.locked {
+  cursor: none;
 }
 
 #game-canvas {
@@ -260,6 +265,8 @@ button:focus-visible {
   border-radius: 50%;
   pointer-events: none;
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
+  transform: translate(-9999px, -9999px);
+  display: none;
 }
 
 .crosshair::before,

@@ -11,6 +11,8 @@ const hud = {
   status: document.getElementById('hud-status'),
 };
 
+const gameRoot = document.getElementById('game-root');
+const crosshair = document.getElementById('crosshair');
 const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayDescription = document.getElementById('overlay-description');
@@ -540,6 +542,9 @@ function resizeCanvas() {
     canvas.height = clientHeight;
     state.width = clientWidth;
     state.height = clientHeight;
+    input.mouse.x = clamp(input.mouse.x, 0, state.width);
+    input.mouse.y = clamp(input.mouse.y, 0, state.height);
+    setCrosshairPosition(input.mouse.x, input.mouse.y);
   }
 }
 
@@ -549,6 +554,35 @@ function screenToWorld(x, y) {
     x: x - rect.left,
     y: y - rect.top,
   };
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function setCrosshairPosition(x, y) {
+  if (!crosshair) return;
+  crosshair.style.transform = `translate(${x - 12}px, ${y - 12}px)`;
+}
+
+function centerCrosshair() {
+  input.mouse.x = state.width / 2;
+  input.mouse.y = state.height / 2;
+  setCrosshairPosition(input.mouse.x, input.mouse.y);
+}
+
+function setCrosshairVisible(visible) {
+  if (!crosshair) return;
+  crosshair.style.display = visible ? 'block' : 'none';
+}
+
+function isOverlayActive() {
+  return overlay.classList.contains('visible') || pauseOverlay.classList.contains('visible');
+}
+
+function refreshCrosshairVisibility() {
+  const visible = state.running && !isOverlayActive();
+  setCrosshairVisible(visible);
 }
 
 function updateHud() {
@@ -1346,6 +1380,7 @@ function endRun(victory) {
   overlaySummary.classList.add('visible');
   startButton.textContent = 'Restart';
   overlay.classList.add('visible');
+  refreshCrosshairVisibility();
 }
 
 function loop(timestamp) {
@@ -1399,6 +1434,11 @@ function startGame() {
   overlaySummary.textContent = '';
   overlaySummary.classList.remove('visible');
   startButton.textContent = 'Start';
+  centerCrosshair();
+  refreshCrosshairVisibility();
+  if (canvas.requestPointerLock) {
+    canvas.requestPointerLock();
+  }
   const settings = getDifficultySettings();
   player.health = settings.playerHealth;
   player.armor = settings.playerArmor;
@@ -1427,6 +1467,7 @@ function pauseGame() {
   if (!state.running) return;
   state.paused = true;
   pauseOverlay.classList.add('visible');
+  refreshCrosshairVisibility();
 }
 
 function resumeGame() {
@@ -1435,6 +1476,11 @@ function resumeGame() {
   state.paused = false;
   pauseOverlay.classList.remove('visible');
   state.lastTime = performance.now();
+  centerCrosshair();
+  refreshCrosshairVisibility();
+  if (canvas.requestPointerLock) {
+    canvas.requestPointerLock();
+  }
   requestAnimationFrame(loop);
 }
 
@@ -1445,6 +1491,17 @@ function toggleFullscreen() {
   } else {
     document.exitFullscreen().catch(() => {});
   }
+}
+
+function handlePointerLockChange() {
+  const locked = document.pointerLockElement === canvas;
+  if (gameRoot) {
+    gameRoot.classList.toggle('locked', locked);
+  }
+  if (locked) {
+    centerCrosshair();
+  }
+  refreshCrosshairVisibility();
 }
 
 function switchWeapon(slot) {
@@ -1526,9 +1583,15 @@ window.addEventListener('keyup', (event) => {
 });
 
 window.addEventListener('mousemove', (event) => {
-  const { x, y } = screenToWorld(event.clientX, event.clientY);
-  input.mouse.x = x;
-  input.mouse.y = y;
+  if (document.pointerLockElement === canvas) {
+    input.mouse.x = clamp(input.mouse.x + event.movementX, 0, state.width);
+    input.mouse.y = clamp(input.mouse.y + event.movementY, 0, state.height);
+  } else {
+    const { x, y } = screenToWorld(event.clientX, event.clientY);
+    input.mouse.x = x;
+    input.mouse.y = y;
+  }
+  setCrosshairPosition(input.mouse.x, input.mouse.y);
 });
 
 window.addEventListener('mousedown', (event) => {
@@ -1547,6 +1610,13 @@ window.addEventListener('blur', () => {
   input.keys.clear();
   input.shooting = false;
   if (state.running) pauseGame();
+});
+
+document.addEventListener('pointerlockchange', handlePointerLockChange);
+canvas.addEventListener('click', () => {
+  if (state.running && !state.paused && canvas.requestPointerLock) {
+    canvas.requestPointerLock();
+  }
 });
 
 startButton.addEventListener('click', startGame);
@@ -1570,3 +1640,5 @@ audioButton.addEventListener('click', () => {
 resizeCanvas();
 updateHud();
 renderBestRuns();
+centerCrosshair();
+refreshCrosshairVisibility();
