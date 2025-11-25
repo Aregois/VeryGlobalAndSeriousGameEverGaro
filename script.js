@@ -452,6 +452,8 @@ function updateBestRuns(difficulty, stats) {
   }
 }
 
+const WAVE_INTERMISSION_MS = 1200;
+
 const state = {
   running: false,
   paused: false,
@@ -863,7 +865,7 @@ function updateBuffHud(now = performance.now()) {
     }
   });
 
-  hud.status.textContent = activeLabels.length ? activeLabels.join(' • ') : 'None';
+  return activeLabels;
 }
 
 function updateBossHud() {
@@ -881,7 +883,15 @@ function updateBossHud() {
 }
 
 function updateStatusHud(now = performance.now()) {
-  updateBuffHud(now);
+  const labels = [];
+
+  if (state.waveDelayUntil && state.waveDelayUntil > now) {
+    const seconds = Math.max(0, (state.waveDelayUntil - now) / 1000);
+    labels.push(`Next wave in ${seconds.toFixed(1)}s`);
+  }
+
+  labels.push(...updateBuffHud(now));
+  hud.status.textContent = labels.length ? labels.join(' • ') : 'None';
 }
 
 function handleInput(delta, timestamp) {
@@ -1615,7 +1625,7 @@ function updateEnemies(delta) {
 
   if (enemies.length === 0 && !state.waveDelayUntil) {
     if (state.waveIndex < waves.length - 1) {
-      state.waveDelayUntil = performance.now() + 1200;
+      state.waveDelayUntil = performance.now() + WAVE_INTERMISSION_MS;
       setMusicIntensity('calm');
       spawnIntermissionPickups();
     } else {
@@ -1670,7 +1680,7 @@ function endRun(victory) {
   state.running = false;
   state.paused = false;
   stopMusic();
-  updateBuffHud();
+  updateStatusHud();
   updateBossHud();
   updateHud();
   overlayTitle.textContent = victory ? 'Victory!' : 'Garo has fallen';
@@ -1742,7 +1752,7 @@ function startGame() {
   state.difficulty = difficultySelect?.value ?? 'normal';
   state.buffs.seriousDamageUntil = 0;
   state.buffs.hasteUntil = 0;
-  updateBuffHud();
+  updateStatusHud();
   updateBossHud();
   bullets.length = 0;
   enemies.length = 0;
