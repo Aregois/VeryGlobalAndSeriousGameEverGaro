@@ -43,13 +43,16 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px;
 }
 
 .hud-bar {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
+  position: relative;
   display: flex;
   gap: 16px;
   padding: 10px 16px;
@@ -58,6 +61,13 @@ body {
   border-radius: 12px;
   backdrop-filter: blur(4px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+.hud-bar.secondary {
+  gap: 24px;
+  padding: 6px 12px;
+  font-size: 14px;
+  background: rgba(11, 17, 27, 0.75);
 }
 
 .hud-group {

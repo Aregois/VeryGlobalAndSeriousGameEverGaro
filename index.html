@@ -31,6 +31,16 @@
           <span class="label">Wave</span>
           <span id="hud-wave" class="value">0 / 0</span>
         </div>
+        <div class="hud-group">
+          <span class="label">Score</span>
+          <span id="hud-score" class="value">0</span>
+        </div>
+      </div>
+      <div class="hud-bar secondary">
+        <div class="hud-group">
+          <span class="label">Status</span>
+          <span id="hud-status" class="value">None</span>
+        </div>
       </div>
     </section>
     <section id="overlay" class="overlay visible">
@@ -39,7 +49,10 @@
         <p id="overlay-description">Browser-based 2D pseudo-3D shooter prototype.</p>
         <button id="start-button" type="button">Start</button>
         <button id="fullscreen-button" type="button">Toggle Fullscreen</button>
-        <p class="hint">WASD to move · Mouse to aim · Left click to fire (explosions hurt) · 1-7 to switch weapons · ESC to pause</p>
+        <p class="hint">
+          WASD to move · Mouse to aim · Left click to fire (explosions hurt) · 1-7 to switch weapons · ESC to pause · Grab
+          Serious Damage and Speed pickups to stack temporary buffs
+        </p>
       </div>
     </section>
     <section id="pause" class="overlay">

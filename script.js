@@ -7,6 +7,8 @@ const hud = {
   weapon: document.getElementById('hud-weapon'),
   ammo: document.getElementById('hud-ammo'),
   wave: document.getElementById('hud-wave'),
+  score: document.getElementById('hud-score'),
+  status: document.getElementById('hud-status'),
 };
 
 const overlay = document.getElementById('overlay');
@@ -25,6 +27,12 @@ const state = {
   height: canvas.clientHeight,
   waveIndex: 0,
   waveDelayUntil: null,
+  score: 0,
+  kills: 0,
+  buffs: {
+    seriousDamageUntil: 0,
+    hasteUntil: 0,
+  },
 };
 
 const player = {
@@ -258,6 +266,22 @@ const pickupTypes = {
     },
     label: 'Cannon',
   },
+  serious: {
+    radius: 16,
+    color: '#bf34ff',
+    apply: () => {
+      state.buffs.seriousDamageUntil = performance.now() + 11000;
+    },
+    label: 'Serious',
+  },
+  haste: {
+    radius: 16,
+    color: '#2dd4bf',
+    apply: () => {
+      state.buffs.hasteUntil = performance.now() + 9000;
+    },
+    label: 'Speed',
+  },
 };
 
 let lastShotTime = 0;
@@ -290,6 +314,26 @@ function updateHud() {
   const ammo = player.ammoPools[ammoKey];
   hud.ammo.textContent = ammo === Infinity ? '∞' : ammo;
   hud.wave.textContent = `${state.waveIndex + 1} / ${waves.length}`;
+  hud.score.textContent = state.score.toFixed(0);
+}
+
+function getDamageMultiplier(now = performance.now()) {
+  return now < state.buffs.seriousDamageUntil ? 2 : 1;
+}
+
+function getSpeedMultiplier(now = performance.now()) {
+  return now < state.buffs.hasteUntil ? 1.25 : 1;
+}
+
+function updateStatusHud(now = performance.now()) {
+  const active = [];
+  if (now < state.buffs.seriousDamageUntil) {
+    active.push('Serious Damage');
+  }
+  if (now < state.buffs.hasteUntil) {
+    active.push('Speed Boost');
+  }
+  hud.status.textContent = active.length ? active.join(' • ') : 'None';
 }
 
 function handleInput(delta, timestamp) {
@@ -305,8 +349,9 @@ function handleInput(delta, timestamp) {
     const length = Math.hypot(dx, dy) || 1;
     const nx = dx / length;
     const ny = dy / length;
-    player.x += nx * player.speed * delta;
-    player.y += ny * player.speed * delta;
+    const moveSpeed = player.speed * getSpeedMultiplier();
+    player.x += nx * moveSpeed * delta;
+    player.y += ny * moveSpeed * delta;
   }
 
   player.x = Math.max(24, Math.min(state.width - 24, player.x));
@@ -591,16 +636,33 @@ function damagePlayer(amount) {
   }
 }
 
+function registerKill(type) {
+  const scores = {
+    Kamikaze: 25,
+    Kleer: 40,
+    BioMech: 55,
+    Werebull: 80,
+    Harpy: 45,
+    Reptiloid: 70,
+    UghZan: 500,
+  };
+  state.kills += 1;
+  state.score += scores[type] ?? 30;
+  updateHud();
+}
+
 function detonate(bullet, x, y) {
   if (!bullet.explosionRadius) return;
   explosions.push({ x, y, radius: bullet.explosionRadius, life: 0.25, maxLife: 0.25 });
+  const damage = bullet.damage * getDamageMultiplier();
 
   for (let j = enemies.length - 1; j >= 0; j -= 1) {
     const enemy = enemies[j];
     const dist = Math.hypot(enemy.x - x, enemy.y - y);
     if (dist <= enemy.radius + bullet.explosionRadius) {
-      enemy.health -= bullet.damage;
+      enemy.health -= damage;
       if (enemy.health <= 0) {
+        registerKill(enemy.type);
         enemies.splice(j, 1);
       }
     }
@@ -615,6 +677,8 @@ function detonate(bullet, x, y) {
 }
 
 function updateBullets(delta) {
+  const now = performance.now();
+  const damageMultiplier = getDamageMultiplier(now);
   for (let i = bullets.length - 1; i >= 0; i -= 1) {
     const bullet = bullets[i];
     bullet.x += bullet.vx * delta;
@@ -643,8 +707,9 @@ function updateBullets(delta) {
         if (bullet.explosionRadius) {
           detonate(bullet, bullet.x, bullet.y);
         } else {
-          enemy.health -= bullet.damage;
+          enemy.health -= bullet.damage * damageMultiplier;
           if (enemy.health <= 0) {
+            registerKill(enemy.type);
             enemies.splice(j, 1);
           }
         }
@@ -907,6 +972,7 @@ function updatePickups() {
       }
       pickups.splice(i, 1);
       updateHud();
+      updateStatusHud();
     }
   }
 }
@@ -923,6 +989,12 @@ function spawnIntermissionPickups() {
   }
   if (Math.random() > 0.4) {
     spawnPickup('armor');
+  }
+  if (Math.random() > 0.45) {
+    spawnPickup('serious');
+  }
+  if (Math.random() > 0.5) {
+    spawnPickup('haste');
   }
 }
 
@@ -957,6 +1029,7 @@ function loop(timestamp) {
   updateEnemyProjectiles(delta);
   updatePickups();
   updateExplosions(delta);
+  updateStatusHud(timestamp);
   render(delta);
   requestAnimationFrame(loop);
 }
@@ -967,6 +1040,10 @@ function startGame() {
   state.lastTime = performance.now();
   state.waveIndex = 0;
   state.waveDelayUntil = null;
+  state.score = 0;
+  state.kills = 0;
+  state.buffs.seriousDamageUntil = 0;
+  state.buffs.hasteUntil = 0;
   bullets.length = 0;
   enemies.length = 0;
   enemyProjectiles.length = 0;
@@ -996,6 +1073,7 @@ function startGame() {
   spawnPickup('cells');
   spawnPickup('cannonballs');
   updateHud();
+  updateStatusHud();
   requestAnimationFrame(loop);
 }
 
