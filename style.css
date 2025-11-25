@@ -54,6 +54,35 @@ body {
   z-index: 2;
 }
 
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(6, 10, 16, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.volume-control label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #c8d5ef;
+}
+
+.volume-control input[type='range'] {
+  width: 120px;
+  accent-color: #2cf08e;
+}
+
+.volume-control span {
+  font-size: 13px;
+  min-width: 40px;
+  color: #e8f2ff;
+  text-align: right;
+}
+
 #hud {
   position: absolute;
   inset: 0;

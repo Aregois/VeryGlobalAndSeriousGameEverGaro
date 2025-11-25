@@ -45,9 +45,12 @@ const overlaySummary = document.getElementById('overlay-summary');
 const bestRunsContainer = document.getElementById('best-runs');
 const resetProgressButton = document.getElementById('reset-progress');
 const audioButton = document.getElementById('audio-button');
+const volumeSlider = document.getElementById('volume-slider');
+const volumeValue = document.getElementById('volume-value');
 const fullscreenButton = document.getElementById('fullscreen-button');
 
 let audioEnabled = true;
+let masterVolume = 1;
 let audioContext = null;
 let music = {
   oscillator: null,
@@ -70,6 +73,8 @@ function ensureAudioContext() {
 function playTone({ type = 'square', frequency = 440, duration = 0.14, gain = 0.12, detune = 0, startAt }) {
   const ctx = ensureAudioContext();
   if (!ctx) return;
+  const effectiveGain = gain * masterVolume;
+  if (effectiveGain <= 0) return;
   const osc = ctx.createOscillator();
   const gainNode = ctx.createGain();
   osc.type = type;
@@ -78,7 +83,7 @@ function playTone({ type = 'square', frequency = 440, duration = 0.14, gain = 0.
     osc.detune.value = detune;
   }
   const now = startAt ?? ctx.currentTime;
-  gainNode.gain.setValueAtTime(gain, now);
+  gainNode.gain.setValueAtTime(effectiveGain, now);
   gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
   osc.connect(gainNode).connect(ctx.destination);
   osc.start(now);
@@ -88,6 +93,8 @@ function playTone({ type = 'square', frequency = 440, duration = 0.14, gain = 0.
 function playNoise(duration = 0.16, gain = 0.14) {
   const ctx = ensureAudioContext();
   if (!ctx) return;
+  const effectiveGain = gain * masterVolume;
+  if (effectiveGain <= 0) return;
   const bufferSize = duration * ctx.sampleRate;
   const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
   const data = buffer.getChannelData(0);
@@ -99,7 +106,7 @@ function playNoise(duration = 0.16, gain = 0.14) {
   source.buffer = buffer;
   const gainNode = ctx.createGain();
   const now = ctx.currentTime;
-  gainNode.gain.setValueAtTime(gain, now);
+  gainNode.gain.setValueAtTime(effectiveGain, now);
   gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
   source.connect(gainNode).connect(ctx.destination);
   source.start(now);
@@ -173,6 +180,17 @@ function stopMusic() {
   music.intensity = null;
 }
 
+function getMusicConfig(intensity) {
+  return (
+    {
+      calm: { baseFreq: 82, beatFreq: 220, beatGain: 0.05, gain: 0.06, bpm: 96 },
+      build: { baseFreq: 108, beatFreq: 280, beatGain: 0.06, gain: 0.07, bpm: 110 },
+      combat: { baseFreq: 140, beatFreq: 340, beatGain: 0.07, gain: 0.08, bpm: 124 },
+      boss: { baseFreq: 170, beatFreq: 420, beatGain: 0.08, gain: 0.09, bpm: 134 },
+    }[intensity] || { baseFreq: 100, beatFreq: 260, beatGain: 0.05, gain: 0.06, bpm: 110 }
+  );
+}
+
 function startMusic(intensity = 'build') {
   if (!audioEnabled) return;
   const ctx = ensureAudioContext();
@@ -181,19 +199,14 @@ function startMusic(intensity = 'build') {
   stopMusic();
   music.intensity = intensity;
 
-  const config = {
-    calm: { baseFreq: 82, beatFreq: 220, beatGain: 0.05, gain: 0.06, bpm: 96 },
-    build: { baseFreq: 108, beatFreq: 280, beatGain: 0.06, gain: 0.07, bpm: 110 },
-    combat: { baseFreq: 140, beatFreq: 340, beatGain: 0.07, gain: 0.08, bpm: 124 },
-    boss: { baseFreq: 170, beatFreq: 420, beatGain: 0.08, gain: 0.09, bpm: 134 },
-  }[intensity] || { baseFreq: 100, beatFreq: 260, beatGain: 0.05, gain: 0.06, bpm: 110 };
+  const config = getMusicConfig(intensity);
 
   music.oscillator = ctx.createOscillator();
   music.oscillator.type = 'sawtooth';
   music.oscillator.frequency.value = config.baseFreq;
 
   music.gain = ctx.createGain();
-  music.gain.gain.setValueAtTime(config.gain, ctx.currentTime);
+  music.gain.gain.setValueAtTime(config.gain * masterVolume, ctx.currentTime);
 
   music.oscillator.connect(music.gain).connect(ctx.destination);
   music.oscillator.start();
@@ -208,6 +221,35 @@ function startMusic(intensity = 'build') {
     playNoise(0.05, config.beatGain);
     playTone({ type: 'square', frequency: config.beatFreq, duration: 0.08, gain: config.beatGain * 0.9, startAt: now });
   }, beatIntervalMs);
+}
+
+function updateMusicVolume() {
+  if (!music.gain) return;
+  const ctx = ensureAudioContext();
+  if (!ctx) return;
+  const config = getMusicConfig(music.intensity || 'build');
+  music.gain.gain.setValueAtTime(config.gain * masterVolume, ctx.currentTime);
+}
+
+function setVolume(value, { persist = true } = {}) {
+  masterVolume = clamp(value, 0, 1);
+  if (volumeSlider) {
+    volumeSlider.value = Math.round(masterVolume * 100);
+  }
+  if (volumeValue) {
+    volumeValue.textContent = `${Math.round(masterVolume * 100)}%`;
+  }
+  updateMusicVolume();
+  if (persist) {
+    saveSettings({ volume: masterVolume, audioEnabled });
+  }
+}
+
+function refreshAudioUi() {
+  if (audioButton) {
+    audioButton.textContent = audioEnabled ? 'Audio: On' : 'Audio: Off';
+  }
+  setVolume(masterVolume, { persist: false });
 }
 
 function setMusicIntensity(intensity) {
@@ -256,7 +298,31 @@ function getDifficultySettings() {
   return difficulties[state.difficulty] || difficulties.normal;
 }
 
+const SETTINGS_KEY = 'garoSettings';
 const BEST_RUNS_KEY = 'garoBestRuns';
+
+function loadSettings() {
+  try {
+    const saved = localStorage.getItem(SETTINGS_KEY);
+    if (!saved) return { volume: 1, audioEnabled: true };
+    const parsed = JSON.parse(saved);
+    return {
+      volume: clamp(parsed.volume ?? 1, 0, 1),
+      audioEnabled: parsed.audioEnabled ?? true,
+    };
+  } catch (error) {
+    console.warn('Could not load settings, resetting...', error);
+    return { volume: 1, audioEnabled: true };
+  }
+}
+
+function saveSettings(value) {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(value));
+  } catch (error) {
+    console.warn('Could not persist settings', error);
+  }
+}
 
 function createDefaultBestRuns() {
   return Object.keys(difficulties).reduce((acc, key) => {
@@ -286,6 +352,10 @@ function saveBestRuns(value) {
 }
 
 let bestRuns = loadBestRuns();
+
+const savedSettings = loadSettings();
+audioEnabled = savedSettings.audioEnabled ?? true;
+masterVolume = clamp(savedSettings.volume ?? 1, 0, 1);
 
 function formatDuration(seconds) {
   const mins = Math.floor(seconds / 60);
@@ -1816,7 +1886,7 @@ function resetBestRuns() {
 resetProgressButton?.addEventListener('click', resetBestRuns);
 audioButton.addEventListener('click', () => {
   audioEnabled = !audioEnabled;
-  audioButton.textContent = audioEnabled ? 'Audio: On' : 'Audio: Off';
+  refreshAudioUi();
   if (audioEnabled) {
     ensureAudioContext();
     if (state.running && !state.paused) {
@@ -1825,6 +1895,11 @@ audioButton.addEventListener('click', () => {
   } else {
     stopMusic();
   }
+  saveSettings({ volume: masterVolume, audioEnabled });
+});
+volumeSlider?.addEventListener('input', (event) => {
+  const value = Number(event.target.value) / 100;
+  setVolume(value);
 });
 
 resizeCanvas();
@@ -1832,3 +1907,4 @@ updateHud();
 renderBestRuns();
 centerCrosshair();
 refreshCrosshairVisibility();
+refreshAudioUi();

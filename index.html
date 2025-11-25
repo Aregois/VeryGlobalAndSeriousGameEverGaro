@@ -12,6 +12,11 @@
     <div id="crosshair" class="crosshair" aria-hidden="true"></div>
     <div id="utility-bar">
       <button id="audio-button" type="button">Audio: On</button>
+      <div class="volume-control">
+        <label for="volume-slider">Volume</label>
+        <input id="volume-slider" type="range" min="0" max="100" step="1" value="100" />
+        <span id="volume-value">100%</span>
+      </div>
       <button id="fullscreen-button" type="button">Toggle Fullscreen</button>
     </div>
     <section id="hud">
@@ -95,9 +100,8 @@
           WASD to move · Mouse to aim · Left click to fire (explosions hurt) · 1-8 to switch weapons (8 = Knife) · ESC to
           pause/unlock the mouse · Starting or resuming captures the pointer for centered crosshair control · Buff bars show
           remaining Serious Damage/Speed time and a boss bar appears for Ugh-Zan · Use the adaptive synth soundtrack (Audio
-          toggle) to lean into each wave · Use the
-          difficulty dropdown to scale enemy intensity and scoring · Grab Serious Damage and Speed pickups to stack temporary
-          buffs · Use the Audio toggle to silence or enable the synth SFX · Best runs are saved per difficulty in your browser
+          toggle) and volume slider to lean into each wave · Use the difficulty dropdown to scale enemy intensity and scoring ·
+          Grab Serious Damage and Speed pickups to stack temporary buffs · Best runs are saved per difficulty in your browser
           and can be reset anytime
         </p>
       </div>
