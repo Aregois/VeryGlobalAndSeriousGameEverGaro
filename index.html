@@ -13,6 +13,7 @@
     <div id="utility-bar">
       <button id="audio-button" type="button">Audio: On</button>
       <button id="effects-button" type="button">Effects: On</button>
+      <button id="stats-button" type="button">Stats: Off</button>
       <div class="control-card">
         <label for="sensitivity-slider">Sensitivity</label>
         <input id="sensitivity-slider" type="range" min="40" max="200" step="1" value="100" />
@@ -35,6 +36,7 @@
       <button id="fullscreen-button" type="button">Toggle Fullscreen</button>
     </div>
     <section id="hud">
+      <div id="stats-readout" aria-live="off"></div>
       <div class="hud-bar">
         <div class="hud-group">
           <span class="label">Health</span>
@@ -120,10 +122,10 @@
           to cycle · ESC to pause/unlock the mouse · Starting or resuming captures the pointer for centered crosshair control ·
           Buff bars show remaining Serious Damage/Speed time, the wave/left HUD readout shows how many waves remain, a brief
           intermission timer calls out the next wave, and a boss bar appears for Ugh-Zan · Use the adaptive synth soundtrack
-          (Audio toggle), Effects toggle, volume slider, sensitivity slider, and crosshair size/color controls to tune
-          feedback/aim feel (settings persist) · Use the difficulty dropdown to scale enemy intensity and scoring · Grab
-          Serious Damage and Speed pickups to stack temporary buffs · Best runs are saved per difficulty in your browser and
-          can be reset anytime
+          (Audio toggle), Effects toggle, volume slider, sensitivity slider, crosshair size/color controls, and the Stats
+          toggle (shows FPS/frame time) to tune feedback/aim feel (settings persist) · Use the difficulty dropdown to scale
+          enemy intensity and scoring · Grab Serious Damage and Speed pickups to stack temporary buffs · Best runs are saved
+          per difficulty in your browser and can be reset anytime
         </p>
       </div>
     </section>

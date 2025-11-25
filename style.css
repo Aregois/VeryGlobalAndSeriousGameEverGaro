@@ -54,6 +54,22 @@ body {
   z-index: 2;
 }
 
+#stats-readout {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 8px 12px;
+  background: rgba(6, 10, 16, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  font-size: 13px;
+  color: #cfe6ff;
+  min-width: 120px;
+  text-align: left;
+  pointer-events: none;
+}
+
 .control-card {
   display: flex;
   align-items: center;

@@ -47,6 +47,7 @@ const bestRunsContainer = document.getElementById('best-runs');
 const resetProgressButton = document.getElementById('reset-progress');
 const audioButton = document.getElementById('audio-button');
 const effectsButton = document.getElementById('effects-button');
+const statsButton = document.getElementById('stats-button');
 const volumeSlider = document.getElementById('volume-slider');
 const volumeValue = document.getElementById('volume-value');
 const sensitivitySlider = document.getElementById('sensitivity-slider');
@@ -54,6 +55,7 @@ const sensitivityValue = document.getElementById('sensitivity-value');
 const crosshairSizeSlider = document.getElementById('crosshair-size');
 const crosshairSizeValue = document.getElementById('crosshair-size-value');
 const crosshairColorInput = document.getElementById('crosshair-color');
+const statsReadout = document.getElementById('stats-readout');
 const fullscreenButton = document.getElementById('fullscreen-button');
 
 let audioEnabled = true;
@@ -63,6 +65,7 @@ let crosshairSize = 24;
 let crosshairColor = '#ffffff';
 let crosshairFlashUntil = 0;
 let crosshairFlashColor = null;
+let statsEnabled = false;
 let audioContext = null;
 let music = {
   oscillator: null,
@@ -70,6 +73,7 @@ let music = {
   beatInterval: null,
   intensity: null,
 };
+let frameTimes = [];
 
 function ensureAudioContext() {
   if (!audioEnabled) return null;
@@ -322,6 +326,15 @@ function refreshEffectsUi() {
   }
 }
 
+function refreshStatsUi() {
+  if (statsButton) {
+    statsButton.textContent = statsEnabled ? 'Stats: On' : 'Stats: Off';
+  }
+  if (!statsEnabled && statsReadout) {
+    statsReadout.textContent = '';
+  }
+}
+
 function setMusicIntensity(intensity) {
   if (!audioEnabled) {
     stopMusic();
@@ -379,6 +392,7 @@ function loadSettings() {
         volume: 1,
         audioEnabled: true,
         effectsEnabled: true,
+        statsEnabled: false,
         sensitivity: 1,
         difficulty: 'normal',
         crosshairSize: 24,
@@ -389,6 +403,7 @@ function loadSettings() {
       volume: 1,
       audioEnabled: true,
       effectsEnabled: true,
+      statsEnabled: false,
       sensitivity: 1,
       difficulty: 'normal',
       crosshairSize: 24,
@@ -399,6 +414,7 @@ function loadSettings() {
       volume: clamp(parsed.volume ?? fallback.volume, 0, 1),
       audioEnabled: parsed.audioEnabled ?? fallback.audioEnabled,
       effectsEnabled: parsed.effectsEnabled ?? fallback.effectsEnabled,
+      statsEnabled: parsed.statsEnabled ?? fallback.statsEnabled,
       sensitivity: clamp(parsed.sensitivity ?? fallback.sensitivity, 0.4, 2),
       difficulty,
       crosshairSize: clamp(parsed.crosshairSize ?? fallback.crosshairSize, 14, 48),
@@ -406,7 +422,7 @@ function loadSettings() {
     };
   } catch (error) {
     console.warn('Could not load settings, resetting...', error);
-    return { volume: 1, audioEnabled: true, effectsEnabled: true, sensitivity: 1, difficulty: 'normal', crosshairSize: 24, crosshairColor: '#ffffff' };
+    return { volume: 1, audioEnabled: true, effectsEnabled: true, statsEnabled: false, sensitivity: 1, difficulty: 'normal', crosshairSize: 24, crosshairColor: '#ffffff' };
   }
 }
 
@@ -423,6 +439,7 @@ function persistSettings() {
     volume: masterVolume,
     audioEnabled,
     effectsEnabled: state.effectsEnabled,
+    statsEnabled,
     sensitivity: mouseSensitivity,
     difficulty: state.difficulty,
     crosshairSize,
@@ -465,6 +482,7 @@ masterVolume = clamp(savedSettings.volume ?? 1, 0, 1);
 mouseSensitivity = clamp(savedSettings.sensitivity ?? 1, 0.4, 2);
 crosshairSize = clamp(savedSettings.crosshairSize ?? 24, 14, 48);
 crosshairColor = normalizeColor(savedSettings.crosshairColor ?? '#ffffff', '#ffffff');
+statsEnabled = savedSettings.statsEnabled ?? false;
 const savedDifficulty = difficulties[savedSettings.difficulty] ? savedSettings.difficulty : 'normal';
 
 function formatDuration(seconds) {
@@ -988,6 +1006,15 @@ function updateBossHud() {
   } else {
     bossHud.root.classList.remove('visible');
   }
+}
+
+function updateStatsHud(frameMs) {
+  if (!statsEnabled || !statsReadout) return;
+  frameTimes.push(frameMs);
+  if (frameTimes.length > 120) frameTimes.shift();
+  const avg = frameTimes.reduce((sum, value) => sum + value, 0) / frameTimes.length;
+  const fps = avg > 0 ? 1000 / avg : 0;
+  statsReadout.textContent = `${fps.toFixed(0)} FPS (${avg.toFixed(1)} ms)`;
 }
 
 function updateStatusHud(now = performance.now()) {
@@ -1861,6 +1888,7 @@ function loop(timestamp) {
   updateStatusHud(timestamp);
   updateBossHud();
   render(delta);
+  updateStatsHud(frameMs);
   requestAnimationFrame(loop);
 }
 
@@ -1877,6 +1905,7 @@ function startGame() {
   state.difficulty = difficultySelect?.value ?? 'normal';
   state.buffs.seriousDamageUntil = 0;
   state.buffs.hasteUntil = 0;
+  frameTimes = [];
   updateStatusHud();
   updateBossHud();
   bullets.length = 0;
@@ -1919,6 +1948,7 @@ function startGame() {
   spawnPickup('cannonballs');
   updateHud();
   updateStatusHud();
+  updateStatsHud(0);
   requestAnimationFrame(loop);
 }
 
@@ -1942,6 +1972,8 @@ function resumeGame() {
     canvas.requestPointerLock();
   }
   setMusicIntensity(getMusicIntensityForWave(state.waveIndex));
+  frameTimes = [];
+  updateStatsHud(0);
   requestAnimationFrame(loop);
 }
 
@@ -2124,6 +2156,13 @@ effectsButton?.addEventListener('click', () => {
   refreshEffectsUi();
   persistSettings();
 });
+statsButton?.addEventListener('click', () => {
+  statsEnabled = !statsEnabled;
+  frameTimes = [];
+  updateStatsHud(0);
+  refreshStatsUi();
+  persistSettings();
+});
 volumeSlider?.addEventListener('input', (event) => {
   const value = Number(event.target.value) / 100;
   setVolume(value);
@@ -2159,3 +2198,4 @@ refreshAudioUi();
 refreshEffectsUi();
 refreshSensitivityUi();
 refreshCrosshairUi();
+refreshStatsUi();
