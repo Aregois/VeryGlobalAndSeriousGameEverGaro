@@ -49,6 +49,12 @@ const fullscreenButton = document.getElementById('fullscreen-button');
 
 let audioEnabled = true;
 let audioContext = null;
+let music = {
+  oscillator: null,
+  gain: null,
+  beatInterval: null,
+  intensity: null,
+};
 
 function ensureAudioContext() {
   if (!audioEnabled) return null;
@@ -61,7 +67,7 @@ function ensureAudioContext() {
   return audioContext;
 }
 
-function playTone({ type = 'square', frequency = 440, duration = 0.14, gain = 0.12, detune = 0 }) {
+function playTone({ type = 'square', frequency = 440, duration = 0.14, gain = 0.12, detune = 0, startAt }) {
   const ctx = ensureAudioContext();
   if (!ctx) return;
   const osc = ctx.createOscillator();
@@ -71,7 +77,7 @@ function playTone({ type = 'square', frequency = 440, duration = 0.14, gain = 0.
   if (detune) {
     osc.detune.value = detune;
   }
-  const now = ctx.currentTime;
+  const now = startAt ?? ctx.currentTime;
   gainNode.gain.setValueAtTime(gain, now);
   gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
   osc.connect(gainNode).connect(ctx.destination);
@@ -144,6 +150,73 @@ function playSfx(name) {
     default:
       break;
   }
+}
+
+function stopMusic() {
+  if (music.beatInterval) {
+    clearInterval(music.beatInterval);
+    music.beatInterval = null;
+  }
+  if (music.oscillator) {
+    try {
+      music.oscillator.stop();
+    } catch (e) {
+      // ignore
+    }
+    music.oscillator.disconnect();
+    music.oscillator = null;
+  }
+  if (music.gain) {
+    music.gain.disconnect();
+    music.gain = null;
+  }
+  music.intensity = null;
+}
+
+function startMusic(intensity = 'build') {
+  if (!audioEnabled) return;
+  const ctx = ensureAudioContext();
+  if (!ctx) return;
+
+  stopMusic();
+  music.intensity = intensity;
+
+  const config = {
+    calm: { baseFreq: 82, beatFreq: 220, beatGain: 0.05, gain: 0.06, bpm: 96 },
+    build: { baseFreq: 108, beatFreq: 280, beatGain: 0.06, gain: 0.07, bpm: 110 },
+    combat: { baseFreq: 140, beatFreq: 340, beatGain: 0.07, gain: 0.08, bpm: 124 },
+    boss: { baseFreq: 170, beatFreq: 420, beatGain: 0.08, gain: 0.09, bpm: 134 },
+  }[intensity] || { baseFreq: 100, beatFreq: 260, beatGain: 0.05, gain: 0.06, bpm: 110 };
+
+  music.oscillator = ctx.createOscillator();
+  music.oscillator.type = 'sawtooth';
+  music.oscillator.frequency.value = config.baseFreq;
+
+  music.gain = ctx.createGain();
+  music.gain.gain.setValueAtTime(config.gain, ctx.currentTime);
+
+  music.oscillator.connect(music.gain).connect(ctx.destination);
+  music.oscillator.start();
+
+  const beatIntervalMs = (60 / config.bpm) * 1000;
+  music.beatInterval = setInterval(() => {
+    if (!audioEnabled) {
+      stopMusic();
+      return;
+    }
+    const now = ctx.currentTime;
+    playNoise(0.05, config.beatGain);
+    playTone({ type: 'square', frequency: config.beatFreq, duration: 0.08, gain: config.beatGain * 0.9, startAt: now });
+  }, beatIntervalMs);
+}
+
+function setMusicIntensity(intensity) {
+  if (!audioEnabled) {
+    stopMusic();
+    return;
+  }
+  if (music.intensity === intensity && music.oscillator) return;
+  startMusic(intensity);
 }
 
 const difficulties = {
@@ -479,6 +552,15 @@ const waves = [
   { type: 'Reptiloid', count: 5, bonus: { type: 'BioMech', count: 2 } },
   { type: 'UghZan', count: 1 },
 ];
+
+function getMusicIntensityForWave(index) {
+  const wave = waves[index];
+  if (!wave) return 'calm';
+  if (wave.type === 'UghZan') return 'boss';
+  if (index >= 7) return 'combat';
+  if (index >= 4) return 'build';
+  return 'calm';
+}
 
 const pickupTypes = {
   health: {
@@ -867,6 +949,7 @@ function spawnEnemy(type) {
 function spawnWave(index) {
   const wave = waves[index];
   if (!wave) return;
+  setMusicIntensity(getMusicIntensityForWave(index));
   const settings = getDifficultySettings();
   const primaryCount = Math.max(1, Math.round(wave.count * settings.enemyCount));
   for (let i = 0; i < primaryCount; i += 1) {
@@ -1394,6 +1477,7 @@ function updateEnemies(delta) {
   if (enemies.length === 0 && !state.waveDelayUntil) {
     if (state.waveIndex < waves.length - 1) {
       state.waveDelayUntil = performance.now() + 1200;
+      setMusicIntensity('calm');
       spawnIntermissionPickups();
     } else {
       endRun(true);
@@ -1446,6 +1530,7 @@ function spawnIntermissionPickups() {
 function endRun(victory) {
   state.running = false;
   state.paused = false;
+  stopMusic();
   updateBuffHud();
   updateBossHud();
   overlayTitle.textContent = victory ? 'Victory!' : 'Garo has fallen';
@@ -1549,6 +1634,7 @@ function startGame() {
   player.ammoPools['Rocket Launcher'] = 6;
   player.ammoPools['Laser Gun'] = 80;
   player.ammoPools.Cannon = 3;
+  setMusicIntensity(getMusicIntensityForWave(state.waveIndex));
   spawnWave(state.waveIndex);
   spawnPickup('shells');
   spawnPickup('smg');
@@ -1564,6 +1650,7 @@ function pauseGame() {
   if (!state.running) return;
   state.paused = true;
   pauseOverlay.classList.add('visible');
+  stopMusic();
   refreshCrosshairVisibility();
 }
 
@@ -1578,6 +1665,7 @@ function resumeGame() {
   if (canvas.requestPointerLock) {
     canvas.requestPointerLock();
   }
+  setMusicIntensity(getMusicIntensityForWave(state.waveIndex));
   requestAnimationFrame(loop);
 }
 
@@ -1731,6 +1819,11 @@ audioButton.addEventListener('click', () => {
   audioButton.textContent = audioEnabled ? 'Audio: On' : 'Audio: Off';
   if (audioEnabled) {
     ensureAudioContext();
+    if (state.running && !state.paused) {
+      setMusicIntensity(getMusicIntensityForWave(state.waveIndex));
+    }
+  } else {
+    stopMusic();
   }
 });
 
