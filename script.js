@@ -17,6 +17,8 @@ const overlayDescription = document.getElementById('overlay-description');
 const pauseOverlay = document.getElementById('pause');
 const startButton = document.getElementById('start-button');
 const resumeButton = document.getElementById('resume-button');
+const difficultySelect = document.getElementById('difficulty-select');
+const overlaySummary = document.getElementById('overlay-summary');
 const audioButton = document.getElementById('audio-button');
 const fullscreenButton = document.getElementById('fullscreen-button');
 
@@ -119,6 +121,43 @@ function playSfx(name) {
   }
 }
 
+const difficulties = {
+  easy: {
+    label: 'Easy',
+    enemyHealth: 0.9,
+    enemyDamage: 0.85,
+    enemyCount: 0.85,
+    enemySpeed: 0.95,
+    playerHealth: 120,
+    playerArmor: 25,
+    scoreMultiplier: 0.75,
+  },
+  normal: {
+    label: 'Normal',
+    enemyHealth: 1,
+    enemyDamage: 1,
+    enemyCount: 1,
+    enemySpeed: 1,
+    playerHealth: 100,
+    playerArmor: 10,
+    scoreMultiplier: 1,
+  },
+  hard: {
+    label: 'Hard',
+    enemyHealth: 1.2,
+    enemyDamage: 1.25,
+    enemyCount: 1.15,
+    enemySpeed: 1.08,
+    playerHealth: 90,
+    playerArmor: 0,
+    scoreMultiplier: 1.25,
+  },
+};
+
+function getDifficultySettings() {
+  return difficulties[state.difficulty] || difficulties.normal;
+}
+
 const state = {
   running: false,
   paused: false,
@@ -129,6 +168,8 @@ const state = {
   waveDelayUntil: null,
   score: 0,
   kills: 0,
+  difficulty: 'normal',
+  startTime: 0,
   buffs: {
     seriousDamageUntil: 0,
     hasteUntil: 0,
@@ -623,14 +664,19 @@ function spawnEnemy(type) {
     y = Math.random() * state.height;
   }
 
+  const settings = getDifficultySettings();
+  const scaledHealth = Math.round(definition.health * settings.enemyHealth);
+  const scaledDamage = Math.round(definition.damage * settings.enemyDamage);
+  const scaledSpeed = definition.speed * settings.enemySpeed;
+
   enemies.push({
     type,
     x,
     y,
     radius: definition.radius,
-    speed: definition.speed,
-    damage: definition.damage,
-    health: definition.health,
+    speed: scaledSpeed,
+    damage: scaledDamage,
+    health: scaledHealth,
     color: definition.color,
     lastShot: 0,
     nextDive: performance.now() + 1200 + Math.random() * 1400,
@@ -641,11 +687,14 @@ function spawnEnemy(type) {
 function spawnWave(index) {
   const wave = waves[index];
   if (!wave) return;
-  for (let i = 0; i < wave.count; i += 1) {
+  const settings = getDifficultySettings();
+  const primaryCount = Math.max(1, Math.round(wave.count * settings.enemyCount));
+  for (let i = 0; i < primaryCount; i += 1) {
     spawnEnemy(wave.type);
   }
   if (wave.bonus) {
-    for (let i = 0; i < wave.bonus.count; i += 1) {
+    const bonusCount = Math.max(1, Math.round(wave.bonus.count * settings.enemyCount));
+    for (let i = 0; i < bonusCount; i += 1) {
       spawnEnemy(wave.bonus.type);
     }
   }
@@ -818,7 +867,8 @@ function registerKill(type) {
     UghZan: 500,
   };
   state.kills += 1;
-  state.score += scores[type] ?? 30;
+  const multiplier = getDifficultySettings().scoreMultiplier ?? 1;
+  state.score += (scores[type] ?? 30) * multiplier;
   updateHud();
 }
 
@@ -1186,6 +1236,19 @@ function endRun(victory) {
   overlayDescription.textContent = victory
     ? 'You felled Ugh-Zan III and survived the full gauntlet. Continue the fight soon.'
     : 'Enemies overwhelmed Garo. Try again to push further.';
+  const settings = getDifficultySettings();
+  const wavesCleared = Math.min(waves.length, state.waveIndex + (enemies.length === 0 ? 1 : 0));
+  const elapsed = Math.max(0, Math.round((performance.now() - state.startTime) / 1000));
+  const minutes = Math.floor(elapsed / 60);
+  const seconds = String(elapsed % 60).padStart(2, '0');
+  overlaySummary.innerHTML = `
+    <div><strong>Difficulty:</strong> ${settings.label}</div>
+    <div><strong>Score:</strong> ${Math.round(state.score)}</div>
+    <div><strong>Kills:</strong> ${state.kills}</div>
+    <div><strong>Waves cleared:</strong> ${wavesCleared} / ${waves.length}</div>
+    <div><strong>Time:</strong> ${minutes}m ${seconds}s</div>
+  `;
+  overlaySummary.classList.add('visible');
   startButton.textContent = 'Restart';
   overlay.classList.add('visible');
 }
@@ -1220,10 +1283,12 @@ function startGame() {
   state.running = true;
   state.paused = false;
   state.lastTime = performance.now();
+  state.startTime = state.lastTime;
   state.waveIndex = 0;
   state.waveDelayUntil = null;
   state.score = 0;
   state.kills = 0;
+  state.difficulty = difficultySelect?.value ?? 'normal';
   state.buffs.seriousDamageUntil = 0;
   state.buffs.hasteUntil = 0;
   bullets.length = 0;
@@ -1236,9 +1301,12 @@ function startGame() {
   pauseOverlay.classList.remove('visible');
   overlayTitle.textContent = "Garo's First Encounter";
   overlayDescription.textContent = 'Browser-based 2D pseudo-3D shooter prototype.';
+  overlaySummary.textContent = '';
+  overlaySummary.classList.remove('visible');
   startButton.textContent = 'Start';
-  player.health = 100;
-  player.armor = 10;
+  const settings = getDifficultySettings();
+  player.health = settings.playerHealth;
+  player.armor = settings.playerArmor;
   player.x = state.width / 2;
   player.y = state.height * 0.65;
   player.weapon = 'Revolver';

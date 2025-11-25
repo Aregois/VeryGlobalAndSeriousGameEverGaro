@@ -135,6 +135,41 @@ body {
   color: #c6d4ef;
 }
 
+#overlay .control-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  justify-content: center;
+}
+
+#overlay label {
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+#overlay select {
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+}
+
+#overlay .summary {
+  margin: 0.5rem 0 1rem 0;
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: none;
+}
+
+#overlay .summary.visible {
+  display: block;
+}
+
 .panel .hint {
   font-size: 13px;
   color: #94a6c7;

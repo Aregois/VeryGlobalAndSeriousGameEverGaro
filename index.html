@@ -51,11 +51,20 @@
       <div class="panel">
         <h1 id="overlay-title">Garo's First Encounter</h1>
         <p id="overlay-description">Browser-based 2D pseudo-3D shooter prototype.</p>
+        <div class="control-row">
+          <label for="difficulty-select">Difficulty</label>
+          <select id="difficulty-select" name="difficulty">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
         <button id="start-button" type="button">Start</button>
+        <div id="overlay-summary" class="summary" aria-live="polite"></div>
         <p class="hint">
           WASD to move · Mouse to aim · Left click to fire (explosions hurt) · 1-8 to switch weapons (8 = Knife) · ESC to
-          pause · Grab Serious Damage and Speed pickups to stack temporary buffs · Use the Audio toggle to silence or enable
-          the synth SFX
+          pause · Use the difficulty dropdown to scale enemy intensity and scoring · Grab Serious Damage and Speed pickups to
+          stack temporary buffs · Use the Audio toggle to silence or enable the synth SFX
         </p>
       </div>
     </section>
