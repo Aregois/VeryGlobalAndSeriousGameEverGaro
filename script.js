@@ -56,16 +56,49 @@ const musicVolumeValue = document.getElementById('music-volume-value');
 const sensitivitySlider = document.getElementById('sensitivity-slider');
 const sensitivityValue = document.getElementById('sensitivity-value');
 const crosshairSizeSlider = document.getElementById('crosshair-size');
-const crosshairSizeValue = document.getElementById('crosshair-size-value');
-const crosshairColorInput = document.getElementById('crosshair-color');
-const statsReadout = document.getElementById('stats-readout');
-const fullscreenButton = document.getElementById('fullscreen-button');
+  const crosshairSizeValue = document.getElementById('crosshair-size-value');
+  const crosshairColorInput = document.getElementById('crosshair-color');
+  const statsReadout = document.getElementById('stats-readout');
+  const fullscreenButton = document.getElementById('fullscreen-button');
 
-let audioEnabled = true;
-let masterVolume = 1;
-let musicEnabled = true;
-let musicVolume = 1;
-let mouseSensitivity = 1;
+  const difficulties = {
+    easy: {
+      label: 'Easy',
+      enemyHealth: 0.9,
+      enemyDamage: 0.85,
+      enemyCount: 0.85,
+      enemySpeed: 0.95,
+      playerHealth: 120,
+      playerArmor: 25,
+      scoreMultiplier: 0.75,
+    },
+    normal: {
+      label: 'Normal',
+      enemyHealth: 1,
+      enemyDamage: 1,
+      enemyCount: 1,
+      enemySpeed: 1,
+      playerHealth: 100,
+      playerArmor: 10,
+      scoreMultiplier: 1,
+    },
+    hard: {
+      label: 'Hard',
+      enemyHealth: 1.2,
+      enemyDamage: 1.25,
+      enemyCount: 1.15,
+      enemySpeed: 1.08,
+      playerHealth: 90,
+      playerArmor: 0,
+      scoreMultiplier: 1.25,
+    },
+  };
+
+  let audioEnabled = true;
+  let masterVolume = 1;
+  let musicEnabled = true;
+  let musicVolume = 1;
+  let mouseSensitivity = 1;
 let crosshairSize = 24;
 let crosshairColor = '#ffffff';
 let crosshairFlashUntil = 0;
@@ -362,39 +395,6 @@ function setMusicIntensity(intensity) {
   if (music.intensity === intensity && music.oscillator) return;
   startMusic(intensity);
 }
-
-const difficulties = {
-  easy: {
-    label: 'Easy',
-    enemyHealth: 0.9,
-    enemyDamage: 0.85,
-    enemyCount: 0.85,
-    enemySpeed: 0.95,
-    playerHealth: 120,
-    playerArmor: 25,
-    scoreMultiplier: 0.75,
-  },
-  normal: {
-    label: 'Normal',
-    enemyHealth: 1,
-    enemyDamage: 1,
-    enemyCount: 1,
-    enemySpeed: 1,
-    playerHealth: 100,
-    playerArmor: 10,
-    scoreMultiplier: 1,
-  },
-  hard: {
-    label: 'Hard',
-    enemyHealth: 1.2,
-    enemyDamage: 1.25,
-    enemyCount: 1.15,
-    enemySpeed: 1.08,
-    playerHealth: 90,
-    playerArmor: 0,
-    scoreMultiplier: 1.25,
-  },
-};
 
 function getDifficultySettings() {
   return difficulties[state.difficulty] || difficulties.normal;
