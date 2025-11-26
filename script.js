@@ -2167,9 +2167,9 @@ canvas.addEventListener('click', () => {
   }
 });
 
-startButton.addEventListener('click', startGame);
-resumeButton.addEventListener('click', resumeGame);
-fullscreenButton.addEventListener('click', toggleFullscreen);
+startButton?.addEventListener('click', startGame);
+resumeButton?.addEventListener('click', resumeGame);
+fullscreenButton?.addEventListener('click', toggleFullscreen);
 function resetBestRuns() {
   bestRuns = createDefaultBestRuns();
   saveBestRuns(bestRuns);
@@ -2249,6 +2249,17 @@ difficultySelect?.addEventListener('change', (event) => {
   if (!difficulties[value]) return;
   state.difficulty = value;
   persistSettings();
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  if (overlay?.classList.contains('visible')) {
+    event.preventDefault();
+    startGame();
+  } else if (pauseOverlay?.classList.contains('visible')) {
+    event.preventDefault();
+    resumeGame();
+  }
 });
 
 resizeCanvas();
