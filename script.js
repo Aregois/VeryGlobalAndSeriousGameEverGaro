@@ -294,10 +294,6 @@ function setSensitivity(value, { persist = true } = {}) {
   }
 }
 
-if (difficultySelect && difficulties[savedDifficulty]) {
-  difficultySelect.value = savedDifficulty;
-}
-
 function refreshAudioUi() {
   if (audioButton) {
     audioButton.textContent = audioEnabled ? 'Audio: On' : 'Audio: Off';
@@ -528,6 +524,10 @@ crosshairSize = clamp(savedSettings.crosshairSize ?? 24, 14, 48);
 crosshairColor = normalizeColor(savedSettings.crosshairColor ?? '#ffffff', '#ffffff');
 statsEnabled = savedSettings.statsEnabled ?? false;
 const savedDifficulty = difficulties[savedSettings.difficulty] ? savedSettings.difficulty : 'normal';
+
+if (difficultySelect && difficulties[savedDifficulty]) {
+  difficultySelect.value = savedDifficulty;
+}
 
 function formatDuration(seconds) {
   const mins = Math.floor(seconds / 60);
