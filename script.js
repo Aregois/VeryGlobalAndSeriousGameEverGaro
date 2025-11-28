@@ -39,12 +39,15 @@ const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayDescription = document.getElementById('overlay-description');
 const pauseOverlay = document.getElementById('pause');
+const helpOverlay = document.getElementById('help');
 const startButton = document.getElementById('start-button');
 const resumeButton = document.getElementById('resume-button');
 const difficultySelect = document.getElementById('difficulty-select');
 const overlaySummary = document.getElementById('overlay-summary');
 const bestRunsContainer = document.getElementById('best-runs');
 const resetProgressButton = document.getElementById('reset-progress');
+const helpButton = document.getElementById('help-button');
+const closeHelpButton = document.getElementById('close-help');
 const audioButton = document.getElementById('audio-button');
 const musicButton = document.getElementById('music-button');
 const effectsButton = document.getElementById('effects-button');
@@ -131,6 +134,7 @@ let music = {
   intensity: null,
 };
 let frameTimes = [];
+let helpWasRunning = false;
 
 function ensureAudioContext() {
   if (!audioEnabled) return null;
@@ -1011,7 +1015,11 @@ function setCrosshairVisible(visible) {
 }
 
 function isOverlayActive() {
-  return overlay.classList.contains('visible') || pauseOverlay.classList.contains('visible');
+  return (
+    overlay.classList.contains('visible') ||
+    pauseOverlay.classList.contains('visible') ||
+    helpOverlay.classList.contains('visible')
+  );
 }
 
 function refreshCrosshairVisibility() {
@@ -2051,6 +2059,26 @@ function resumeGame() {
   requestAnimationFrame(loop);
 }
 
+function openHelpOverlay() {
+  helpWasRunning = state.running && !state.paused;
+  if (helpWasRunning) {
+    pauseGame();
+    pauseOverlay.classList.remove('visible');
+  }
+  helpOverlay?.classList.add('visible');
+  refreshCrosshairVisibility();
+}
+
+function closeHelpOverlay() {
+  helpOverlay?.classList.remove('visible');
+  if (helpWasRunning && state.running && state.paused) {
+    resumeGame();
+  } else {
+    refreshCrosshairVisibility();
+  }
+  helpWasRunning = false;
+}
+
 function toggleFullscreen() {
   const root = document.getElementById('game-root');
   if (!document.fullscreenElement) {
@@ -2087,10 +2115,24 @@ function cycleWeapon(direction) {
 
 window.addEventListener('keydown', (event) => {
   if (event.code === 'Escape') {
+    if (helpOverlay?.classList.contains('visible')) {
+      closeHelpOverlay();
+      return;
+    }
     if (state.paused) {
       resumeGame();
     } else {
       pauseGame();
+    }
+    return;
+  }
+
+  if (event.code === 'KeyH') {
+    event.preventDefault();
+    if (helpOverlay?.classList.contains('visible')) {
+      closeHelpOverlay();
+    } else {
+      openHelpOverlay();
     }
     return;
   }
@@ -2212,6 +2254,8 @@ canvas.addEventListener('click', () => {
 startButton?.addEventListener('click', startGame);
 resumeButton?.addEventListener('click', resumeGame);
 fullscreenButton?.addEventListener('click', toggleFullscreen);
+helpButton?.addEventListener('click', openHelpOverlay);
+closeHelpButton?.addEventListener('click', closeHelpOverlay);
 function resetBestRuns() {
   bestRuns = createDefaultBestRuns();
   saveBestRuns(bestRuns);
@@ -2300,6 +2344,7 @@ difficultySelect?.addEventListener('change', (event) => {
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Enter' && event.key !== ' ') return;
+  if (helpOverlay?.classList.contains('visible')) return;
   if (overlay?.classList.contains('visible')) {
     event.preventDefault();
     startGame();

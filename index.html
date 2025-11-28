@@ -11,6 +11,7 @@
     <canvas id="game-canvas" aria-label="Game canvas" role="presentation"></canvas>
     <div id="crosshair" class="crosshair" aria-hidden="true"></div>
     <div id="utility-bar">
+      <button id="help-button" type="button">Help</button>
       <button id="audio-button" type="button">Audio: On</button>
       <button id="music-button" type="button">Music: On</button>
       <button id="effects-button" type="button">Effects: On</button>
@@ -115,11 +116,11 @@
             <option value="hard">Hard</option>
           </select>
         </div>
-        <button id="start-button" type="button">Start</button>
-        <div class="best-panel">
-          <div class="best-header">
-            <h2>Best runs (local)</h2>
-            <button id="reset-progress" type="button">Reset stats</button>
+      <button id="start-button" type="button">Start</button>
+      <div class="best-panel">
+        <div class="best-header">
+          <h2>Best runs (local)</h2>
+          <button id="reset-progress" type="button">Reset stats</button>
           </div>
           <div id="best-runs" class="best-runs" aria-live="polite"></div>
         </div>
@@ -127,7 +128,7 @@
         <p class="hint">
           WASD to move · Mouse to aim · Left click to fire (explosions hurt) · 1-8 to switch weapons (8 = Knife) or scroll/Q/E
           to cycle · ESC/P to pause/unlock the mouse · Starting or resuming captures the pointer for centered crosshair control ·
-          Buff bars show remaining Serious Damage/Speed time, the wave/left HUD readout shows how many waves remain, a brief
+          Press **Help** (or H) anytime for a quick controls/buff cheat sheet · Buff bars show remaining Serious Damage/Speed time, the wave/left HUD readout shows how many waves remain, a brief
           intermission timer calls out the next wave, and a boss bar appears for Ugh-Zan · Use the adaptive synth soundtrack
           (Audio toggle) or silence just the music with the Music toggle, balance loudness with separate SFX/Music sliders,
           and use the Effects toggle, sensitivity slider, crosshair size/color controls, and the Stats toggle (shows FPS/frame
@@ -141,6 +142,41 @@
       <div class="panel">
         <h2>Paused</h2>
         <button id="resume-button" type="button">Resume</button>
+      </div>
+    </section>
+    <section id="help" class="overlay">
+      <div class="panel help-panel">
+        <div class="panel-header">
+          <h2>Controls &amp; tips</h2>
+          <button id="close-help" type="button" class="inline-button">Close</button>
+        </div>
+        <div class="help-grid">
+          <div>
+            <h3>Movement &amp; combat</h3>
+            <ul>
+              <li>WASD to move, mouse to aim, left click to fire.</li>
+              <li>1-8 (or scroll/Q/E) to switch weapons; 8 is the Knife.</li>
+              <li>ESC or P to pause/unlock the mouse; starting/resuming captures the pointer.</li>
+              <li>Explosions hurt you—give rockets and kamikazes space.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Pickups &amp; buffs</h3>
+            <ul>
+              <li>Grab health, armor, and ammo (shells/SMG/rockets/cells/cannonballs) between waves.</li>
+              <li>Purple Serious Damage doubles outgoing damage; teal Speed boosts movement.</li>
+              <li>Buff bars show remaining timers; boss bar appears for Ugh-Zan.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Settings</h3>
+            <ul>
+              <li>Audio/Music toggles + sliders balance SFX and soundtrack levels.</li>
+              <li>Effects toggle removes shake/flash; sensitivity and crosshair size/color tune aim feel.</li>
+              <li>Stats toggle shows FPS/frame time; Reset settings restores defaults.</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </section>
   </main>
