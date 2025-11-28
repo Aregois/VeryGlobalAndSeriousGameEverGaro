@@ -1244,16 +1244,263 @@ function drawCrosshair() {
   ctx.restore();
 }
 
+function drawWeaponSprite(name, scale = 1) {
+  const length = 26 * scale;
+  const height = 10 * scale;
+  ctx.save();
+  ctx.translate(16 * scale, 0);
+  ctx.fillStyle = '#0f172a';
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  ctx.lineWidth = 2 * scale;
+
+  switch (name) {
+    case 'Knife': {
+      ctx.fillStyle = '#d4d4d4';
+      ctx.beginPath();
+      ctx.moveTo(length * 0.35, -height * 0.35);
+      ctx.lineTo(length * 0.95, 0);
+      ctx.lineTo(length * 0.35, height * 0.35);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#92400e';
+      ctx.fillRect(-length * 0.2, -height * 0.22, length * 0.4, height * 0.44);
+      break;
+    }
+    case 'Revolver': {
+      ctx.fillStyle = '#c9d1d9';
+      ctx.fillRect(-length * 0.2, -height * 0.35, length * 0.8, height * 0.7);
+      ctx.fillRect(length * 0.6, -height * 0.2, length * 0.65, height * 0.4);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(-length * 0.3, -height * 0.22, length * 0.18, height * 0.44);
+      break;
+    }
+    case 'Shotgun':
+    case 'Double-Barrel': {
+      ctx.fillStyle = '#9ca3af';
+      ctx.fillRect(-length * 0.15, -height * 0.3, length * 0.9, height * 0.24);
+      ctx.fillRect(-length * 0.15, height * 0.06, length * 0.9, height * 0.24);
+      ctx.fillStyle = '#374151';
+      ctx.fillRect(-length * 0.35, -height * 0.36, length * 0.3, height * 0.72);
+      break;
+    }
+    case 'Tommy Gun': {
+      ctx.fillStyle = '#1f2937';
+      ctx.fillRect(-length * 0.25, -height * 0.35, length * 1.1, height * 0.7);
+      ctx.fillStyle = '#4b5563';
+      ctx.beginPath();
+      ctx.arc(length * 0.1, 0, height * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#d97706';
+      ctx.fillRect(-length * 0.45, -height * 0.2, length * 0.25, height * 0.4);
+      break;
+    }
+    case 'Rocket Launcher': {
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(-length * 0.25, -height * 0.3, length * 1.2, height * 0.6);
+      ctx.fillStyle = '#e11d48';
+      ctx.fillRect(length * 0.9, -height * 0.32, length * 0.14, height * 0.64);
+      ctx.fillStyle = '#16a34a';
+      ctx.fillRect(-length * 0.3, -height * 0.28, length * 0.18, height * 0.56);
+      break;
+    }
+    case 'Laser Gun': {
+      ctx.fillStyle = '#0ea5e9';
+      ctx.fillRect(-length * 0.2, -height * 0.28, length * 1, height * 0.56);
+      ctx.fillStyle = '#7c3aed';
+      ctx.fillRect(length * 0.45, -height * 0.34, length * 0.22, height * 0.68);
+      ctx.fillStyle = '#22d3ee';
+      ctx.fillRect(-length * 0.4, -height * 0.18, length * 0.22, height * 0.36);
+      break;
+    }
+    case 'Cannon': {
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(-length * 0.15, -height * 0.35, length * 1.2, height * 0.7);
+      ctx.fillStyle = '#fcd34d';
+      ctx.beginPath();
+      ctx.arc(length * 0.8, 0, height * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#374151';
+      ctx.fillRect(-length * 0.45, -height * 0.25, length * 0.25, height * 0.5);
+      break;
+    }
+    default: {
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(-length * 0.2, -height * 0.2, length, height * 0.4);
+      break;
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawGaroSprite(angle) {
+  ctx.save();
+  ctx.rotate(angle);
+
+  ctx.fillStyle = '#0f172a';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 12, 16, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#fbbf24';
+  ctx.beginPath();
+  ctx.arc(0, -18, 7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#0ea5e9';
+  ctx.fillRect(-6, -21, 12, 5);
+
+  ctx.fillStyle = '#ef4444';
+  ctx.fillRect(-9, 4, 18, 8);
+
+  drawWeaponSprite(player.weapon, 0.9);
+
+  ctx.restore();
+}
+
+function drawEnemySprite(enemy, angle) {
+  const baseRadius = enemy.radius;
+  ctx.save();
+  ctx.rotate(angle);
+
+  switch (enemy.type) {
+    case 'Kamikaze': {
+      ctx.fillStyle = '#f87171';
+      ctx.beginPath();
+      ctx.arc(0, 0, baseRadius - 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#1f2937';
+      ctx.fillRect(-baseRadius * 0.5, -baseRadius * 0.8, baseRadius, baseRadius * 0.45);
+      ctx.fillStyle = '#facc15';
+      ctx.fillRect(baseRadius * 0.1, -baseRadius * 0.45, baseRadius * 0.75, baseRadius * 0.3);
+      ctx.fillRect(baseRadius * 0.1, baseRadius * 0.15, baseRadius * 0.75, baseRadius * 0.3);
+      break;
+    }
+    case 'Kleer': {
+      ctx.fillStyle = '#e5e7eb';
+      ctx.beginPath();
+      ctx.arc(0, -baseRadius * 0.1, baseRadius * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#b45309';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-baseRadius * 1.2, -baseRadius * 0.4);
+      ctx.lineTo(-baseRadius * 0.4, -baseRadius * 0.9);
+      ctx.moveTo(baseRadius * 1.2, -baseRadius * 0.4);
+      ctx.lineTo(baseRadius * 0.4, -baseRadius * 0.9);
+      ctx.stroke();
+      ctx.fillStyle = '#4b5563';
+      ctx.fillRect(-baseRadius * 0.15, baseRadius * 0.1, baseRadius * 0.3, baseRadius * 0.9);
+      ctx.fillRect(-baseRadius * 0.9, baseRadius * 0.4, baseRadius * 0.5, baseRadius * 0.22);
+      ctx.fillRect(baseRadius * 0.4, baseRadius * 0.4, baseRadius * 0.5, baseRadius * 0.22);
+      break;
+    }
+    case 'Gnaar': {
+      ctx.fillStyle = '#9ca3af';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, baseRadius * 0.9, baseRadius * 1.1, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(0, -baseRadius * 0.2, baseRadius * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(-baseRadius * 0.5, baseRadius * 0.2, baseRadius, baseRadius * 0.5);
+      break;
+    }
+    case 'BioMech': {
+      ctx.fillStyle = '#9f7aea';
+      ctx.fillRect(-baseRadius, -baseRadius * 0.9, baseRadius * 1.8, baseRadius * 1.8);
+      ctx.fillStyle = '#22d3ee';
+      ctx.fillRect(-baseRadius * 0.9, -baseRadius * 1.2, baseRadius * 0.6, baseRadius * 0.6);
+      ctx.fillRect(baseRadius * 0.3, -baseRadius * 1.2, baseRadius * 0.6, baseRadius * 0.6);
+      ctx.fillStyle = '#14b8a6';
+      ctx.fillRect(-baseRadius * 0.3, baseRadius * 0.2, baseRadius * 0.6, baseRadius * 0.9);
+      break;
+    }
+    case 'Werebull': {
+      ctx.fillStyle = '#b45309';
+      ctx.beginPath();
+      ctx.ellipse(0, baseRadius * 0.1, baseRadius * 1.2, baseRadius * 0.9, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#111827';
+      ctx.beginPath();
+      ctx.arc(-baseRadius * 0.6, -baseRadius * 0.7, baseRadius * 0.4, 0, Math.PI * 2);
+      ctx.arc(baseRadius * 0.6, -baseRadius * 0.7, baseRadius * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fef3c7';
+      ctx.beginPath();
+      ctx.arc(0, -baseRadius * 0.4, baseRadius * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'Harpy': {
+      ctx.fillStyle = '#f9a8d4';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, baseRadius * 1.1, baseRadius * 0.7, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#1e1b4b';
+      ctx.beginPath();
+      ctx.moveTo(-baseRadius * 1.4, 0);
+      ctx.quadraticCurveTo(0, -baseRadius * 0.9, baseRadius * 1.4, 0);
+      ctx.lineTo(0, baseRadius * 0.6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(0, -baseRadius * 0.5, baseRadius * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'UghZan': {
+      ctx.fillStyle = '#f97316';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, baseRadius * 1.2, baseRadius * 1.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#7c2d12';
+      ctx.fillRect(-baseRadius * 0.2, -baseRadius * 1.4, baseRadius * 0.4, baseRadius * 0.8);
+      ctx.fillStyle = '#fcd34d';
+      ctx.beginPath();
+      ctx.arc(-baseRadius * 0.35, -baseRadius * 0.5, baseRadius * 0.28, 0, Math.PI * 2);
+      ctx.arc(baseRadius * 0.35, -baseRadius * 0.5, baseRadius * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#0ea5e9';
+      ctx.fillRect(-baseRadius * 0.6, baseRadius * 0.6, baseRadius * 1.2, baseRadius * 0.32);
+      break;
+    }
+    case 'Reptiloid': {
+      ctx.fillStyle = '#22d3ee';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, baseRadius * 1.1, baseRadius * 0.85, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.moveTo(-baseRadius * 0.4, baseRadius * 0.2);
+      ctx.lineTo(0, -baseRadius * 0.8);
+      ctx.lineTo(baseRadius * 0.4, baseRadius * 0.2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#f97316';
+      ctx.fillRect(baseRadius * 0.6, baseRadius * 0.05, baseRadius * 0.55, baseRadius * 0.28);
+      ctx.fillRect(-baseRadius * 1.15, baseRadius * 0.05, baseRadius * 0.55, baseRadius * 0.28);
+      break;
+    }
+    default: {
+      ctx.fillStyle = enemy.color;
+      ctx.beginPath();
+      ctx.arc(0, 0, baseRadius, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+  }
+
+  ctx.restore();
+}
+
 function drawPlayer() {
   ctx.save();
   ctx.translate(player.x, player.y);
-  ctx.fillStyle = '#ffaf00';
-  ctx.beginPath();
-  ctx.arc(0, 0, 12, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
-  ctx.lineWidth = 3;
-  ctx.stroke();
+  const angle = Math.atan2(input.mouse.y - player.y, input.mouse.x - player.x);
+  drawGaroSprite(angle);
   ctx.restore();
 }
 
@@ -1588,14 +1835,8 @@ function drawEnemies() {
   enemies.forEach((enemy) => {
     ctx.save();
     ctx.translate(enemy.x, enemy.y);
-    ctx.fillStyle = enemy.color;
-    ctx.beginPath();
-    ctx.arc(0, 0, enemy.radius, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
-    ctx.lineWidth = 3;
-    ctx.stroke();
+    const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
+    drawEnemySprite(enemy, angle);
 
     // Health ring
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
