@@ -1632,6 +1632,169 @@ function buildKamikazeSpriteFrames(baseSize, drawShadow) {
   return { idle, run, attack, death };
 }
 
+
+function buildKleerSpriteFrames(baseSize, drawShadow) {
+  const makeFrame = (draw) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = baseSize;
+    canvas.height = baseSize;
+    const ctx = canvas.getContext('2d');
+    ctx.translate(baseSize / 2, baseSize / 2);
+    draw(ctx);
+    return canvas;
+  };
+
+  const outline = '#0f172a';
+  const boneHighlight = '#f8fafc';
+  const boneShadow = '#cbd5e1';
+
+  const drawGradientBone = (ctx, drawShape) => {
+    const grad = ctx.createLinearGradient(0, -40, 0, 40);
+    grad.addColorStop(0, boneHighlight);
+    grad.addColorStop(1, boneShadow);
+    ctx.fillStyle = grad;
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    drawShape();
+    ctx.stroke();
+    ctx.fill();
+  };
+
+  const drawSkull = (ctx, tilt, breath) => {
+    ctx.save();
+    ctx.translate(0, -36 + breath);
+    ctx.rotate(tilt);
+    drawGradientBone(ctx, () => {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 18, 16, 0, 0, Math.PI * 2);
+    });
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.arc(-6, -2, 4, 0, Math.PI * 2);
+    ctx.arc(6, -2, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(-16, -6);
+    ctx.lineTo(-26, -16);
+    ctx.moveTo(16, -6);
+    ctx.lineTo(26, -16);
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const drawRibcage = (ctx, sway, lift) => {
+    ctx.save();
+    ctx.translate(0, lift);
+    drawGradientBone(ctx, () => {
+      ctx.beginPath();
+      ctx.ellipse(0, -4 + sway * 0.2, 22, 26, 0, 0, Math.PI * 2);
+    });
+
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(-16, -10 + sway * 0.2);
+    ctx.bezierCurveTo(-6, -20, -6, 14, -16, 18);
+    ctx.moveTo(16, -10 + sway * 0.2);
+    ctx.bezierCurveTo(6, -20, 6, 14, 16, 18);
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const drawScytheArms = (ctx, swing, mode) => {
+    ctx.save();
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 8;
+    const reach = mode === 'attack' ? 26 : 18;
+    ctx.beginPath();
+    ctx.moveTo(-12, -6);
+    ctx.quadraticCurveTo(-22 - swing * 0.6, 8 + swing * 0.4, -4, 18 + swing * 0.2);
+    ctx.lineTo(-4 - reach, 28 + swing * 0.3);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(12, -6);
+    ctx.quadraticCurveTo(22 + swing * 0.6, 8 - swing * 0.4, 4, 18 - swing * 0.2);
+    ctx.lineTo(4 + reach, 28 - swing * 0.3);
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const drawLegs = (ctx, phase) => {
+    ctx.save();
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = 9;
+    const spread = 12;
+    const lift = Math.abs(Math.sin(phase * Math.PI * 2)) * 8;
+    ctx.beginPath();
+    ctx.moveTo(-spread, 18 + lift);
+    ctx.lineTo(-spread + 6, 42);
+    ctx.moveTo(spread, 18 + (8 - lift));
+    ctx.lineTo(spread - 6, 42);
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const drawDeathScatter = (ctx, t) => {
+    const pieces = 12;
+    for (let i = 0; i < pieces; i += 1) {
+      const angle = (Math.PI * 2 * i) / pieces;
+      const dist = 8 + t * 52 + Math.sin(t * Math.PI * 2 + i) * 6;
+      ctx.save();
+      ctx.translate(Math.cos(angle) * dist, Math.sin(angle) * dist);
+      ctx.rotate(angle + t);
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = 6 - t * 3;
+      ctx.beginPath();
+      ctx.moveTo(-6, 0);
+      ctx.lineTo(6, 0);
+      ctx.stroke();
+      ctx.restore();
+    }
+  };
+
+  const createSequence = (count, draw) => {
+    const frames = [];
+    for (let i = 0; i < count; i += 1) {
+      frames.push(makeFrame((ctx) => draw(ctx, i / count)));
+    }
+    return frames;
+  };
+
+  const drawPose = (ctx, t, mode) => {
+    const gallop = Math.sin(t * Math.PI * 2);
+    const hop = mode === 'idle' ? Math.sin(t * Math.PI * 2) * 2 : Math.abs(gallop) * 10;
+    const sway = Math.sin(t * Math.PI * 2 * 1.5) * (mode === 'attack' ? 8 : 5);
+    const tilt = Math.sin(t * Math.PI * 2 * 0.8) * 0.2;
+
+    drawShadow(ctx, 26, 0.25 + (mode === 'attack' ? 0.05 : 0));
+
+    ctx.save();
+    ctx.translate(0, -hop);
+    drawLegs(ctx, t + (mode === 'attack' ? 0.1 : 0));
+    drawRibcage(ctx, sway, hop * 0.15);
+    drawSkull(ctx, tilt, hop * 0.1);
+    drawScytheArms(ctx, sway, mode);
+    ctx.restore();
+  };
+
+  const idle = createSequence(6, (ctx, t) => drawPose(ctx, t, 'idle'));
+  const run = createSequence(8, (ctx, t) => drawPose(ctx, t, 'run'));
+  const attack = createSequence(10, (ctx, t) => drawPose(ctx, t, 'attack'));
+  const death = createSequence(12, (ctx, t) => {
+    drawPose(ctx, t * 0.6, 'death');
+    ctx.save();
+    ctx.globalAlpha = 1 - t * 0.4;
+    drawDeathScatter(ctx, t);
+    ctx.restore();
+  });
+
+  return { idle, run, attack, death };
+}
+
 class EnemySpriteFactory {
   constructor() {
     this.frameCache = new Map();
@@ -1706,48 +1869,7 @@ class EnemySpriteFactory {
   }
 
   buildKleer() {
-    const drawPose = (ctx, phase, mode = 'run') => {
-      const stride = Math.sin(phase * Math.PI * 2) * (mode === 'idle' ? 6 : 14);
-      this.drawShadow(ctx, 28, 0.28);
-      ctx.save();
-      const boneGrad = ctx.createLinearGradient(0, -30, 0, 34);
-      boneGrad.addColorStop(0, '#f8fafc');
-      boneGrad.addColorStop(1, '#cbd5e1');
-      ctx.fillStyle = boneGrad;
-      ctx.beginPath();
-      ctx.ellipse(0, stride * 0.15, 28, 32, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = '#b45309';
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.moveTo(-18, -20 + stride * 0.2);
-      ctx.quadraticCurveTo(0, -34 + stride * 0.2, 18, -20 + stride * 0.2);
-      ctx.stroke();
-
-      ctx.fillStyle = '#9ca3af';
-      const clawOffset = 14 + (mode === 'attack' ? 6 : 0);
-      ctx.beginPath();
-      ctx.moveTo(-14 - stride * 0.6, clawOffset + stride * 0.1);
-      ctx.lineTo(-28 - stride * 0.5, clawOffset + 14);
-      ctx.lineTo(-6 - stride * 0.3, clawOffset + 12);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(14 + stride * 0.6, clawOffset + stride * 0.1);
-      ctx.lineTo(28 + stride * 0.5, clawOffset + 14);
-      ctx.lineTo(6 + stride * 0.3, clawOffset + 12);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    };
-
-    return {
-      idle: this.createFrames(6, (ctx, t) => drawPose(ctx, t, 'idle')),
-      run: this.createFrames(8, (ctx, t) => drawPose(ctx, t, 'run')),
-      attack: this.createFrames(6, (ctx, t) => drawPose(ctx, t, 'attack')),
-      death: this.createFrames(4, (ctx, t) => drawPose(ctx, t, 'death')),
-    };
+    return buildKleerSpriteFrames(this.baseSize, (ctx, size, opacity) => this.drawShadow(ctx, size, opacity));
   }
 
   buildWerebull() {
