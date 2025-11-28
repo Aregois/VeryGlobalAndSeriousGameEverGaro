@@ -9,6 +9,7 @@ const hud = {
   wave: document.getElementById('hud-wave'),
   remaining: document.getElementById('hud-remaining'),
   score: document.getElementById('hud-score'),
+  time: document.getElementById('hud-time'),
   status: document.getElementById('hud-status'),
 };
 
@@ -31,6 +32,63 @@ const bossHud = {
   root: document.getElementById('boss-health'),
   label: document.getElementById('boss-bar-label'),
   fill: document.getElementById('boss-bar-fill'),
+};
+
+const levels = {
+  egypt: {
+    id: 'egypt',
+    name: 'Ancient Egypt — Temple Courtyard',
+    description: 'Sun-baked ruins and dunes outside a desert temple.',
+    playerStart: { x: 0.5, y: 0.7 },
+    horizonRatio: 0.6,
+    backdrop: {
+      skyTop: '#120d1a',
+      skyBottom: '#402b1a',
+      groundTop: '#d7b56d',
+      groundBottom: '#b18332',
+      sun: { x: 0.82, y: 0.18, radius: 64, color: 'rgba(255, 214, 138, 0.65)' },
+      pyramids: [
+        { x: 0.18, width: 0.26, height: 0.22, color: '#e3c070' },
+        { x: 0.72, width: 0.22, height: 0.18, color: '#d8b165' },
+      ],
+      obelisks: [
+        { x: 0.28, y: 0.64, height: 0.24, width: 12, color: '#c9a76a' },
+        { x: 0.68, y: 0.62, height: 0.26, width: 12, color: '#c9a76a' },
+      ],
+      dunes: [
+        { x: 0.18, height: 38 },
+        { x: 0.5, height: 46 },
+        { x: 0.82, height: 34 },
+      ],
+      tileColor: 'rgba(0, 0, 0, 0.08)',
+    },
+    spawnPoints: [
+      { x: 0.08, y: 0.15, jitter: 36 },
+      { x: 0.92, y: 0.18, jitter: 36 },
+      { x: 0.12, y: 0.82, jitter: 32 },
+      { x: 0.88, y: 0.8, jitter: 32 },
+      { x: 0.5, y: -0.08, jitter: 48 },
+      { x: 0.5, y: 1.05, jitter: 48 },
+    ],
+    pickupSpots: [
+      { x: 0.22, y: 0.64 },
+      { x: 0.78, y: 0.64 },
+      { x: 0.36, y: 0.78 },
+      { x: 0.64, y: 0.78 },
+      { x: 0.5, y: 0.58 },
+    ],
+    waves: [
+      { name: 'Scouts in the Sand', groups: [{ type: 'Gnaar', count: 8 }] },
+      { name: 'Bomb Runners', groups: [{ type: 'Kamikaze', count: 11 }] },
+      { name: 'Courtyard Clash', groups: [{ type: 'Gnaar', count: 10 }, { type: 'Kamikaze', count: 6 }] },
+      { name: 'Bones in the Dust', groups: [{ type: 'Kleer', count: 6 }, { type: 'Gnaar', count: 6 }] },
+      { name: 'Skyward Screech', groups: [{ type: 'Harpy', count: 6 }, { type: 'Kamikaze', count: 8 }] },
+      { name: 'Sandstorm Mix', groups: [{ type: 'Kleer', count: 8 }, { type: 'Kamikaze', count: 10 }] },
+      { name: 'Siege of the Obelisks', groups: [{ type: 'BioMech', count: 3 }, { type: 'Gnaar', count: 10 }] },
+      { name: 'Bull Rush', groups: [{ type: 'Werebull', count: 4 }, { type: 'Kleer', count: 6 }] },
+      { name: 'Temple Guardians', music: 'boss', groups: [{ type: 'BioMech', count: 5 }, { type: 'Harpy', count: 6 }] },
+    ],
+  },
 };
 
 const gameRoot = document.getElementById('game-root');
@@ -111,6 +169,24 @@ const defaultSettings = Object.freeze({
   musicVolume: 1,
 });
 
+function formatDurationParts(ms) {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  return {
+    minutes: Math.floor(totalSeconds / 60),
+    seconds: String(totalSeconds % 60).padStart(2, '0'),
+  };
+}
+
+function formatClock(ms) {
+  const { minutes, seconds } = formatDurationParts(ms);
+  return `${minutes}:${seconds}`;
+}
+
+function formatVerboseDuration(ms) {
+  const { minutes, seconds } = formatDurationParts(ms);
+  return `${minutes}m ${seconds}s`;
+}
+
 function getMotionReducedDefault(base) {
   const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
   return prefersReduced ? { ...base, effectsEnabled: false } : { ...base };
@@ -135,6 +211,9 @@ let music = {
 };
 let frameTimes = [];
 let helpWasRunning = false;
+
+if (overlayTitle) overlayTitle.textContent = levels.egypt.name;
+if (overlayDescription) overlayDescription.textContent = levels.egypt.description;
 
 function ensureAudioContext() {
   if (!audioEnabled) return null;
@@ -628,6 +707,7 @@ const state = {
   kills: 0,
   difficulty: savedDifficulty,
   startTime: 0,
+  elapsedMs: 0,
   screenShake: 0,
   hurtFlash: 0,
   effectsEnabled: savedSettings.effectsEnabled ?? true,
@@ -826,25 +906,31 @@ const enemyTypes = {
   },
 };
 
-const waves = [
-  { type: 'Gnaar', count: 8 },
-  { type: 'Kamikaze', count: 6 },
-  { type: 'Kamikaze', count: 10 },
-  { type: 'Kleer', count: 6 },
-  { type: 'Kleer', count: 7, bonus: { type: 'Kamikaze', count: 8 } },
-  { type: 'BioMech', count: 3, bonus: { type: 'Kamikaze', count: 8 } },
-  { type: 'Werebull', count: 4, bonus: { type: 'Kamikaze', count: 6 } },
-  { type: 'Harpy', count: 8, bonus: { type: 'Kleer', count: 6 } },
-  { type: 'Reptiloid', count: 5, bonus: { type: 'BioMech', count: 2 } },
-  { type: 'UghZan', count: 1 },
-];
+let activeLevel = levels.egypt;
+let waves = activeLevel.waves;
+
+function getWaveGroups(wave) {
+  if (!wave) return [];
+  if (Array.isArray(wave.groups) && wave.groups.length > 0) return wave.groups;
+  const groups = [];
+  if (wave.type && wave.count) {
+    groups.push({ type: wave.type, count: wave.count });
+  }
+  if (wave.bonus?.type && wave.bonus?.count) {
+    groups.push({ type: wave.bonus.type, count: wave.bonus.count });
+  }
+  return groups;
+}
 
 function getMusicIntensityForWave(index) {
   const wave = waves[index];
   if (!wave) return 'calm';
-  if (wave.type === 'UghZan') return 'boss';
-  if (index >= 7) return 'combat';
-  if (index >= 4) return 'build';
+  if (wave.music) return wave.music;
+  const groups = getWaveGroups(wave);
+  if (groups.some((group) => group.type === 'UghZan')) return 'boss';
+  if (groups.some((group) => group.type === 'BioMech' || group.type === 'Werebull')) return 'combat';
+  if (index >= Math.max(0, waves.length - 2)) return 'combat';
+  if (index >= Math.floor(waves.length / 2)) return 'build';
   return 'calm';
 }
 
@@ -1039,6 +1125,7 @@ function updateHud() {
   const wavesLeft = Math.max(0, waves.length - (state.waveIndex + 1));
   hud.remaining.textContent = wavesLeft.toFixed(0);
   hud.score.textContent = state.score.toFixed(0);
+  hud.time.textContent = formatClock(state.elapsedMs);
 }
 
 function getDamageMultiplier(now = performance.now()) {
@@ -1101,6 +1188,10 @@ function updateStatsHud(frameMs) {
 
 function updateStatusHud(now = performance.now()) {
   const labels = [];
+
+  if (hud.time) {
+    hud.time.textContent = formatClock(state.elapsedMs);
+  }
 
   if (state.waveDelayUntil && state.waveDelayUntil > now) {
     const seconds = Math.max(0, (state.waveDelayUntil - now) / 1000);
@@ -1267,22 +1358,31 @@ function spawnEnemy(type) {
   const definition = enemyTypes[type];
   if (!definition) return;
 
-  const edge = Math.floor(Math.random() * 4);
+  const spawnSpots = activeLevel?.spawnPoints;
   let x = 0;
   let y = 0;
 
-  if (edge === 0) {
-    x = Math.random() * state.width;
-    y = -definition.radius * 2;
-  } else if (edge === 1) {
-    x = state.width + definition.radius * 2;
-    y = Math.random() * state.height;
-  } else if (edge === 2) {
-    x = Math.random() * state.width;
-    y = state.height + definition.radius * 2;
+  if (Array.isArray(spawnSpots) && spawnSpots.length > 0) {
+    const spot = spawnSpots[Math.floor(Math.random() * spawnSpots.length)];
+    const jitterX = (spot.jitterX ?? spot.jitter ?? 28) * 2;
+    const jitterY = (spot.jitterY ?? spot.jitter ?? 28) * 2;
+    x = spot.x * state.width + (Math.random() - 0.5) * jitterX;
+    y = spot.y * state.height + (Math.random() - 0.5) * jitterY;
   } else {
-    x = -definition.radius * 2;
-    y = Math.random() * state.height;
+    const edge = Math.floor(Math.random() * 4);
+    if (edge === 0) {
+      x = Math.random() * state.width;
+      y = -definition.radius * 2;
+    } else if (edge === 1) {
+      x = state.width + definition.radius * 2;
+      y = Math.random() * state.height;
+    } else if (edge === 2) {
+      x = Math.random() * state.width;
+      y = state.height + definition.radius * 2;
+    } else {
+      x = -definition.radius * 2;
+      y = Math.random() * state.height;
+    }
   }
 
   const settings = getDifficultySettings();
@@ -1311,49 +1411,127 @@ function spawnWave(index) {
   if (!wave) return;
   setMusicIntensity(getMusicIntensityForWave(index));
   const settings = getDifficultySettings();
-  const primaryCount = Math.max(1, Math.round(wave.count * settings.enemyCount));
-  for (let i = 0; i < primaryCount; i += 1) {
-    spawnEnemy(wave.type);
-  }
-  if (wave.bonus) {
-    const bonusCount = Math.max(1, Math.round(wave.bonus.count * settings.enemyCount));
-    for (let i = 0; i < bonusCount; i += 1) {
-      spawnEnemy(wave.bonus.type);
+  const groups = getWaveGroups(wave);
+  groups.forEach((group) => {
+    const spawnCount = Math.max(1, Math.round(group.count * settings.enemyCount));
+    for (let i = 0; i < spawnCount; i += 1) {
+      spawnEnemy(group.type);
     }
-  }
+  });
 }
 
 function spawnPickup(type) {
   const definition = pickupTypes[type];
   if (!definition) return;
-  const padding = 40;
-  const x = padding + Math.random() * (state.width - padding * 2);
-  const y = padding + Math.random() * (state.height - padding * 2);
+  const spots = activeLevel?.pickupSpots;
+  let x = 0;
+  let y = 0;
+  if (Array.isArray(spots) && spots.length > 0) {
+    const spot = spots[Math.floor(Math.random() * spots.length)];
+    const jitter = (spot.jitter ?? 16) * 2;
+    x = spot.x * state.width + (Math.random() - 0.5) * jitter;
+    y = spot.y * state.height + (Math.random() - 0.5) * jitter;
+  } else {
+    const padding = 40;
+    x = padding + Math.random() * (state.width - padding * 2);
+    y = padding + Math.random() * (state.height - padding * 2);
+  }
   pickups.push({ type, x, y, radius: definition.radius });
 }
 
 function drawBackdrop(delta) {
-  const gradient = ctx.createLinearGradient(0, 0, 0, state.height);
-  gradient.addColorStop(0, '#0b1018');
-  gradient.addColorStop(0.55, '#121d2b');
-  gradient.addColorStop(1, '#0a0f18');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, state.width, state.height);
+  const backdrop = activeLevel?.backdrop || {};
+  const horizonRatio = activeLevel?.horizonRatio ?? 0.58;
+  const horizon = state.height * horizonRatio;
 
-  const horizon = state.height * 0.58;
-  ctx.fillStyle = '#1b2638';
+  const sky = ctx.createLinearGradient(0, 0, 0, horizon);
+  sky.addColorStop(0, backdrop.skyTop ?? '#0b1018');
+  sky.addColorStop(1, backdrop.skyBottom ?? '#1b1f2a');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, state.width, horizon);
+
+  if (backdrop.sun) {
+    const sun = backdrop.sun;
+    const sunX = sun.x * state.width;
+    const sunY = sun.y * state.height;
+    const radius = sun.radius ?? 48;
+    ctx.fillStyle = sun.color ?? 'rgba(255, 217, 128, 0.4)';
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const ground = ctx.createLinearGradient(0, horizon, 0, state.height);
+  ground.addColorStop(0, backdrop.groundTop ?? '#caa062');
+  ground.addColorStop(1, backdrop.groundBottom ?? '#a5732f');
+  ctx.fillStyle = ground;
   ctx.fillRect(0, horizon, state.width, state.height - horizon);
 
-  const time = performance.now() / 1000;
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+  if (Array.isArray(backdrop.pyramids)) {
+    backdrop.pyramids.forEach((pyramid) => {
+      const baseWidth = pyramid.width * state.width;
+      const height = pyramid.height * state.height;
+      const baseX = pyramid.x * state.width;
+      const baseY = horizon;
+      ctx.fillStyle = pyramid.color ?? '#d8b468';
+      ctx.beginPath();
+      ctx.moveTo(baseX - baseWidth / 2, baseY);
+      ctx.lineTo(baseX, baseY - height);
+      ctx.lineTo(baseX + baseWidth / 2, baseY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(baseX, baseY - height);
+      ctx.lineTo(baseX, baseY);
+      ctx.stroke();
+    });
+  }
+
+  if (Array.isArray(backdrop.dunes)) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+    backdrop.dunes.forEach((dune) => {
+      const centerX = dune.x * state.width;
+      const duneHeight = dune.height;
+      ctx.beginPath();
+      ctx.ellipse(centerX, horizon + duneHeight, state.width * 0.22, duneHeight * 1.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  if (Array.isArray(backdrop.obelisks)) {
+    ctx.fillStyle = '#c9a76a';
+    backdrop.obelisks.forEach((obelisk) => {
+      const baseX = obelisk.x * state.width;
+      const baseY = (obelisk.y ?? horizonRatio) * state.height;
+      const height = obelisk.height * state.height;
+      const width = obelisk.width ?? 12;
+      ctx.fillStyle = obelisk.color ?? '#c9a76a';
+      ctx.fillRect(baseX - width / 2, baseY - height, width, height);
+      ctx.fillStyle = 'rgba(0,0,0,0.08)';
+      ctx.fillRect(baseX + width / 2 - 3, baseY - height, 3, height);
+    });
+  }
+
+  const tileColor = backdrop.tileColor ?? 'rgba(0, 0, 0, 0.08)';
+  ctx.save();
+  ctx.strokeStyle = tileColor;
   ctx.lineWidth = 1;
-  const spacing = 60;
-  for (let x = -((time * 15) % spacing); x < state.width + spacing; x += spacing) {
+  const spacing = 70;
+  for (let x = -(spacing * 2); x < state.width + spacing * 2; x += spacing) {
     ctx.beginPath();
     ctx.moveTo(x, horizon);
     ctx.lineTo(x + 40, state.height);
     ctx.stroke();
   }
+  for (let y = horizon + spacing; y < state.height; y += spacing * 0.8) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(state.width, y + spacing * 0.3);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function drawBullets(delta) {
@@ -1923,14 +2101,13 @@ function endRun(victory) {
     : 'Enemies overwhelmed Garo. Try again to push further.';
   const settings = getDifficultySettings();
   const wavesCleared = Math.min(waves.length, state.waveIndex + (enemies.length === 0 ? 1 : 0));
-  const elapsed = Math.max(0, Math.round((performance.now() - state.startTime) / 1000));
-  const minutes = Math.floor(elapsed / 60);
-  const seconds = String(elapsed % 60).padStart(2, '0');
+  state.elapsedMs = Math.max(state.elapsedMs, performance.now() - state.startTime);
+  const elapsedSeconds = Math.max(0, Math.round(state.elapsedMs / 1000));
   updateBestRuns(state.difficulty, {
     score: Math.round(state.score),
     kills: state.kills,
     waves: wavesCleared,
-    time: elapsed,
+    time: elapsedSeconds,
     victory,
   });
   overlaySummary.innerHTML = `
@@ -1938,7 +2115,7 @@ function endRun(victory) {
     <div><strong>Score:</strong> ${Math.round(state.score)}</div>
     <div><strong>Kills:</strong> ${state.kills}</div>
     <div><strong>Waves cleared:</strong> ${wavesCleared} / ${waves.length}</div>
-    <div><strong>Time:</strong> ${minutes}m ${seconds}s</div>
+    <div><strong>Time:</strong> ${formatVerboseDuration(state.elapsedMs)}</div>
   `;
   overlaySummary.classList.add('visible');
   startButton.textContent = 'Restart';
@@ -1951,6 +2128,7 @@ function loop(timestamp) {
   const frameMs = Math.max(0, timestamp - state.lastTime);
   const delta = Math.min(0.1, frameMs / 1000);
   state.lastTime = timestamp;
+  state.elapsedMs += delta * 1000;
 
   if (state.waveDelayUntil && timestamp >= state.waveDelayUntil) {
     state.waveDelayUntil = null;
@@ -1976,10 +2154,13 @@ function loop(timestamp) {
 
 function startGame() {
   ensureAudioContext();
+  activeLevel = levels.egypt;
+  waves = activeLevel.waves;
   state.running = true;
   state.paused = false;
   state.lastTime = performance.now();
   state.startTime = state.lastTime;
+  state.elapsedMs = 0;
   state.waveIndex = 0;
   state.waveDelayUntil = null;
   state.score = 0;
@@ -1998,8 +2179,8 @@ function startGame() {
   lastShotTime = 0;
   overlay.classList.remove('visible');
   pauseOverlay.classList.remove('visible');
-  overlayTitle.textContent = "Garo's First Encounter";
-  overlayDescription.textContent = 'Browser-based 2D pseudo-3D shooter prototype.';
+  overlayTitle.textContent = activeLevel.name;
+  overlayDescription.textContent = activeLevel.description;
   overlaySummary.textContent = '';
   overlaySummary.classList.remove('visible');
   startButton.textContent = 'Start';
@@ -2011,8 +2192,9 @@ function startGame() {
   const settings = getDifficultySettings();
   player.health = settings.playerHealth;
   player.armor = settings.playerArmor;
-  player.x = state.width / 2;
-  player.y = state.height * 0.65;
+  const start = activeLevel.playerStart || { x: 0.5, y: 0.65 };
+  player.x = start.x * state.width;
+  player.y = start.y * state.height;
   player.weapon = 'Revolver';
   player.ammoPools.Knife = Infinity;
   player.ammoPools.Revolver = Infinity;
@@ -2143,6 +2325,15 @@ window.addEventListener('keydown', (event) => {
       resumeGame();
     } else {
       pauseGame();
+    }
+    return;
+  }
+
+  if (event.code === 'KeyR') {
+    if (helpOverlay?.classList.contains('visible')) return;
+    if (overlay?.classList.contains('visible') || pauseOverlay?.classList.contains('visible')) {
+      event.preventDefault();
+      startGame();
     }
     return;
   }
