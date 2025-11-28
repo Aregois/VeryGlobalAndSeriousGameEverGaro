@@ -108,6 +108,11 @@ const defaultSettings = Object.freeze({
   musicVolume: 1,
 });
 
+function getMotionReducedDefault(base) {
+  const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  return prefersReduced ? { ...base, effectsEnabled: false } : { ...base };
+}
+
 let audioEnabled = true;
 let masterVolume = 1;
 let musicEnabled = true;
@@ -129,13 +134,23 @@ let frameTimes = [];
 
 function ensureAudioContext() {
   if (!audioEnabled) return null;
-  if (!audioContext) {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  try {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+    return audioContext;
+  } catch (error) {
+    console.warn('Audio unavailable, disabling sound.', error);
+    audioEnabled = false;
+    musicEnabled = false;
+    stopMusic();
+    refreshAudioUi();
+    persistSettings();
+    return null;
   }
-  if (audioContext.state === 'suspended') {
-    audioContext.resume();
-  }
-  return audioContext;
 }
 
 function playTone({ type = 'square', frequency = 440, duration = 0.14, gain = 0.12, detune = 0, startAt, volumeScale }) {
@@ -418,11 +433,11 @@ const SETTINGS_KEY = 'garoSettings';
 const BEST_RUNS_KEY = 'garoBestRuns';
 
 function getDefaultSettings() {
-  return { ...defaultSettings };
+  return getMotionReducedDefault(defaultSettings);
 }
 
 function normalizeSettings(raw) {
-  const fallback = defaultSettings;
+  const fallback = getDefaultSettings();
   const difficulty = difficulties[raw?.difficulty] ? raw.difficulty : fallback.difficulty;
   return {
     volume: clamp(raw?.volume ?? fallback.volume, 0, 1),
@@ -2072,6 +2087,16 @@ function cycleWeapon(direction) {
 
 window.addEventListener('keydown', (event) => {
   if (event.code === 'Escape') {
+    if (state.paused) {
+      resumeGame();
+    } else {
+      pauseGame();
+    }
+    return;
+  }
+
+  if (event.code === 'KeyP') {
+    if (!state.running) return;
     if (state.paused) {
       resumeGame();
     } else {
