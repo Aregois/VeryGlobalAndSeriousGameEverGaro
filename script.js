@@ -49,6 +49,7 @@ const audioButton = document.getElementById('audio-button');
 const musicButton = document.getElementById('music-button');
 const effectsButton = document.getElementById('effects-button');
 const statsButton = document.getElementById('stats-button');
+const resetSettingsButton = document.getElementById('reset-settings');
 const volumeSlider = document.getElementById('volume-slider');
 const volumeValue = document.getElementById('volume-value');
 const musicVolumeSlider = document.getElementById('music-volume-slider');
@@ -56,12 +57,12 @@ const musicVolumeValue = document.getElementById('music-volume-value');
 const sensitivitySlider = document.getElementById('sensitivity-slider');
 const sensitivityValue = document.getElementById('sensitivity-value');
 const crosshairSizeSlider = document.getElementById('crosshair-size');
-  const crosshairSizeValue = document.getElementById('crosshair-size-value');
-  const crosshairColorInput = document.getElementById('crosshair-color');
-  const statsReadout = document.getElementById('stats-readout');
-  const fullscreenButton = document.getElementById('fullscreen-button');
+const crosshairSizeValue = document.getElementById('crosshair-size-value');
+const crosshairColorInput = document.getElementById('crosshair-color');
+const statsReadout = document.getElementById('stats-readout');
+const fullscreenButton = document.getElementById('fullscreen-button');
 
-  const difficulties = {
+const difficulties = {
     easy: {
       label: 'Easy',
       enemyHealth: 0.9,
@@ -94,11 +95,24 @@ const crosshairSizeSlider = document.getElementById('crosshair-size');
     },
   };
 
-  let audioEnabled = true;
-  let masterVolume = 1;
-  let musicEnabled = true;
-  let musicVolume = 1;
-  let mouseSensitivity = 1;
+const defaultSettings = Object.freeze({
+  volume: 1,
+  audioEnabled: true,
+  musicEnabled: true,
+  effectsEnabled: true,
+  statsEnabled: false,
+  sensitivity: 1,
+  difficulty: 'normal',
+  crosshairSize: 24,
+  crosshairColor: '#ffffff',
+  musicVolume: 1,
+});
+
+let audioEnabled = true;
+let masterVolume = 1;
+let musicEnabled = true;
+let musicVolume = 1;
+let mouseSensitivity = 1;
 let crosshairSize = 24;
 let crosshairColor = '#ffffff';
 let crosshairFlashUntil = 0;
@@ -403,62 +417,36 @@ function getDifficultySettings() {
 const SETTINGS_KEY = 'garoSettings';
 const BEST_RUNS_KEY = 'garoBestRuns';
 
+function getDefaultSettings() {
+  return { ...defaultSettings };
+}
+
+function normalizeSettings(raw) {
+  const fallback = defaultSettings;
+  const difficulty = difficulties[raw?.difficulty] ? raw.difficulty : fallback.difficulty;
+  return {
+    volume: clamp(raw?.volume ?? fallback.volume, 0, 1),
+    audioEnabled: raw?.audioEnabled ?? fallback.audioEnabled,
+    musicEnabled: raw?.musicEnabled ?? fallback.musicEnabled,
+    effectsEnabled: raw?.effectsEnabled ?? fallback.effectsEnabled,
+    statsEnabled: raw?.statsEnabled ?? fallback.statsEnabled,
+    sensitivity: clamp(raw?.sensitivity ?? fallback.sensitivity, 0.4, 2),
+    difficulty,
+    crosshairSize: clamp(raw?.crosshairSize ?? fallback.crosshairSize, 14, 48),
+    crosshairColor: normalizeColor(raw?.crosshairColor ?? fallback.crosshairColor, fallback.crosshairColor),
+    musicVolume: clamp(raw?.musicVolume ?? fallback.musicVolume, 0, 1),
+  };
+}
+
 function loadSettings() {
   try {
     const saved = localStorage.getItem(SETTINGS_KEY);
-    if (!saved)
-      return {
-        volume: 1,
-        audioEnabled: true,
-        musicEnabled: true,
-        effectsEnabled: true,
-        statsEnabled: false,
-        sensitivity: 1,
-        difficulty: 'normal',
-        crosshairSize: 24,
-        crosshairColor: '#ffffff',
-        musicVolume: 1,
-      };
+    if (!saved) return getDefaultSettings();
     const parsed = JSON.parse(saved);
-    const fallback = {
-      volume: 1,
-      audioEnabled: true,
-      musicEnabled: true,
-      effectsEnabled: true,
-      statsEnabled: false,
-      sensitivity: 1,
-      difficulty: 'normal',
-      crosshairSize: 24,
-      crosshairColor: '#ffffff',
-      musicVolume: 1,
-    };
-    const difficulty = difficulties[parsed.difficulty] ? parsed.difficulty : fallback.difficulty;
-    return {
-      volume: clamp(parsed.volume ?? fallback.volume, 0, 1),
-      audioEnabled: parsed.audioEnabled ?? fallback.audioEnabled,
-      musicEnabled: parsed.musicEnabled ?? fallback.musicEnabled,
-      effectsEnabled: parsed.effectsEnabled ?? fallback.effectsEnabled,
-      statsEnabled: parsed.statsEnabled ?? fallback.statsEnabled,
-      sensitivity: clamp(parsed.sensitivity ?? fallback.sensitivity, 0.4, 2),
-      difficulty,
-      crosshairSize: clamp(parsed.crosshairSize ?? fallback.crosshairSize, 14, 48),
-      crosshairColor: normalizeColor(parsed.crosshairColor ?? fallback.crosshairColor, fallback.crosshairColor),
-      musicVolume: clamp(parsed.musicVolume ?? fallback.musicVolume, 0, 1),
-    };
+    return normalizeSettings(parsed);
   } catch (error) {
     console.warn('Could not load settings, resetting...', error);
-    return {
-      volume: 1,
-      audioEnabled: true,
-      musicEnabled: true,
-      effectsEnabled: true,
-      statsEnabled: false,
-      sensitivity: 1,
-      difficulty: 'normal',
-      crosshairSize: 24,
-      crosshairColor: '#ffffff',
-      musicVolume: 1,
-    };
+    return getDefaultSettings();
   }
 }
 
@@ -483,6 +471,41 @@ function persistSettings() {
     crosshairColor,
     musicVolume,
   });
+}
+
+function applySettings(raw, { persist = true } = {}) {
+  const normalized = normalizeSettings(raw);
+  audioEnabled = normalized.audioEnabled;
+  masterVolume = normalized.volume;
+  musicEnabled = normalized.musicEnabled;
+  musicVolume = normalized.musicVolume;
+  mouseSensitivity = normalized.sensitivity;
+  crosshairSize = normalized.crosshairSize;
+  crosshairColor = normalized.crosshairColor;
+  statsEnabled = normalized.statsEnabled;
+  state.effectsEnabled = normalized.effectsEnabled;
+  const difficulty = difficulties[normalized.difficulty] ? normalized.difficulty : 'normal';
+  state.difficulty = difficulty;
+  if (difficultySelect && difficultySelect.value !== difficulty) {
+    difficultySelect.value = difficulty;
+  }
+  if (!state.effectsEnabled) {
+    state.screenShake = 0;
+    state.hurtFlash = 0;
+  }
+  refreshAudioUi();
+  refreshEffectsUi();
+  refreshSensitivityUi();
+  refreshCrosshairUi();
+  refreshStatsUi();
+  if (!musicEnabled || !audioEnabled) {
+    stopMusic();
+  } else if (state.running && !state.paused) {
+    setMusicIntensity(getMusicIntensityForWave(state.waveIndex));
+  }
+  if (persist) {
+    persistSettings();
+  }
 }
 
 function createDefaultBestRuns() {
@@ -515,19 +538,7 @@ function saveBestRuns(value) {
 let bestRuns = loadBestRuns();
 
 const savedSettings = loadSettings();
-audioEnabled = savedSettings.audioEnabled ?? true;
-masterVolume = clamp(savedSettings.volume ?? 1, 0, 1);
-musicEnabled = savedSettings.musicEnabled ?? true;
-musicVolume = clamp(savedSettings.musicVolume ?? 1, 0, 1);
-mouseSensitivity = clamp(savedSettings.sensitivity ?? 1, 0.4, 2);
-crosshairSize = clamp(savedSettings.crosshairSize ?? 24, 14, 48);
-crosshairColor = normalizeColor(savedSettings.crosshairColor ?? '#ffffff', '#ffffff');
-statsEnabled = savedSettings.statsEnabled ?? false;
 const savedDifficulty = difficulties[savedSettings.difficulty] ? savedSettings.difficulty : 'normal';
-
-if (difficultySelect && difficulties[savedDifficulty]) {
-  difficultySelect.value = savedDifficulty;
-}
 
 function formatDuration(seconds) {
   const mins = Math.floor(seconds / 60);
@@ -2177,6 +2188,11 @@ function resetBestRuns() {
 }
 
 resetProgressButton?.addEventListener('click', resetBestRuns);
+function resetSettings() {
+  applySettings(getDefaultSettings());
+}
+
+resetSettingsButton?.addEventListener('click', resetSettings);
 audioButton.addEventListener('click', () => {
   audioEnabled = !audioEnabled;
   refreshAudioUi();
@@ -2262,6 +2278,7 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
+applySettings(savedSettings, { persist: false });
 resizeCanvas();
 updateHud();
 renderBestRuns();
