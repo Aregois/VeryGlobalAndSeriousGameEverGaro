@@ -9,6 +9,7 @@ const hud = {
   wave: document.getElementById('hud-wave'),
   remaining: document.getElementById('hud-remaining'),
   score: document.getElementById('hud-score'),
+  time: document.getElementById('hud-time'),
   status: document.getElementById('hud-status'),
 };
 
@@ -110,6 +111,24 @@ const defaultSettings = Object.freeze({
   crosshairColor: '#ffffff',
   musicVolume: 1,
 });
+
+function formatDurationParts(ms) {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  return {
+    minutes: Math.floor(totalSeconds / 60),
+    seconds: String(totalSeconds % 60).padStart(2, '0'),
+  };
+}
+
+function formatClock(ms) {
+  const { minutes, seconds } = formatDurationParts(ms);
+  return `${minutes}:${seconds}`;
+}
+
+function formatVerboseDuration(ms) {
+  const { minutes, seconds } = formatDurationParts(ms);
+  return `${minutes}m ${seconds}s`;
+}
 
 function getMotionReducedDefault(base) {
   const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
@@ -628,6 +647,7 @@ const state = {
   kills: 0,
   difficulty: savedDifficulty,
   startTime: 0,
+  elapsedMs: 0,
   screenShake: 0,
   hurtFlash: 0,
   effectsEnabled: savedSettings.effectsEnabled ?? true,
@@ -1039,6 +1059,7 @@ function updateHud() {
   const wavesLeft = Math.max(0, waves.length - (state.waveIndex + 1));
   hud.remaining.textContent = wavesLeft.toFixed(0);
   hud.score.textContent = state.score.toFixed(0);
+  hud.time.textContent = formatClock(state.elapsedMs);
 }
 
 function getDamageMultiplier(now = performance.now()) {
@@ -1101,6 +1122,10 @@ function updateStatsHud(frameMs) {
 
 function updateStatusHud(now = performance.now()) {
   const labels = [];
+
+  if (hud.time) {
+    hud.time.textContent = formatClock(state.elapsedMs);
+  }
 
   if (state.waveDelayUntil && state.waveDelayUntil > now) {
     const seconds = Math.max(0, (state.waveDelayUntil - now) / 1000);
@@ -1923,14 +1948,13 @@ function endRun(victory) {
     : 'Enemies overwhelmed Garo. Try again to push further.';
   const settings = getDifficultySettings();
   const wavesCleared = Math.min(waves.length, state.waveIndex + (enemies.length === 0 ? 1 : 0));
-  const elapsed = Math.max(0, Math.round((performance.now() - state.startTime) / 1000));
-  const minutes = Math.floor(elapsed / 60);
-  const seconds = String(elapsed % 60).padStart(2, '0');
+  state.elapsedMs = Math.max(state.elapsedMs, performance.now() - state.startTime);
+  const elapsedSeconds = Math.max(0, Math.round(state.elapsedMs / 1000));
   updateBestRuns(state.difficulty, {
     score: Math.round(state.score),
     kills: state.kills,
     waves: wavesCleared,
-    time: elapsed,
+    time: elapsedSeconds,
     victory,
   });
   overlaySummary.innerHTML = `
@@ -1938,7 +1962,7 @@ function endRun(victory) {
     <div><strong>Score:</strong> ${Math.round(state.score)}</div>
     <div><strong>Kills:</strong> ${state.kills}</div>
     <div><strong>Waves cleared:</strong> ${wavesCleared} / ${waves.length}</div>
-    <div><strong>Time:</strong> ${minutes}m ${seconds}s</div>
+    <div><strong>Time:</strong> ${formatVerboseDuration(state.elapsedMs)}</div>
   `;
   overlaySummary.classList.add('visible');
   startButton.textContent = 'Restart';
@@ -1951,6 +1975,7 @@ function loop(timestamp) {
   const frameMs = Math.max(0, timestamp - state.lastTime);
   const delta = Math.min(0.1, frameMs / 1000);
   state.lastTime = timestamp;
+  state.elapsedMs += delta * 1000;
 
   if (state.waveDelayUntil && timestamp >= state.waveDelayUntil) {
     state.waveDelayUntil = null;
@@ -1980,6 +2005,7 @@ function startGame() {
   state.paused = false;
   state.lastTime = performance.now();
   state.startTime = state.lastTime;
+  state.elapsedMs = 0;
   state.waveIndex = 0;
   state.waveDelayUntil = null;
   state.score = 0;
@@ -2143,6 +2169,15 @@ window.addEventListener('keydown', (event) => {
       resumeGame();
     } else {
       pauseGame();
+    }
+    return;
+  }
+
+  if (event.code === 'KeyR') {
+    if (helpOverlay?.classList.contains('visible')) return;
+    if (overlay?.classList.contains('visible') || pauseOverlay?.classList.contains('visible')) {
+      event.preventDefault();
+      startGame();
     }
     return;
   }
