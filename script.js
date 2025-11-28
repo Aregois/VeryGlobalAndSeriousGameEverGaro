@@ -908,16 +908,20 @@ let lastShotTime = 0;
 const enemyProjectiles = [];
 
 function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
   const { clientWidth, clientHeight } = canvas;
-  if (canvas.width !== clientWidth || canvas.height !== clientHeight) {
-    canvas.width = clientWidth;
-    canvas.height = clientHeight;
-    state.width = clientWidth;
-    state.height = clientHeight;
-    input.mouse.x = clamp(input.mouse.x, 0, state.width);
-    input.mouse.y = clamp(input.mouse.y, 0, state.height);
-    setCrosshairPosition(input.mouse.x, input.mouse.y);
+  const width = Math.floor(clientWidth * dpr);
+  const height = Math.floor(clientHeight * dpr);
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
+  state.width = clientWidth;
+  state.height = clientHeight;
+  input.mouse.x = clamp(input.mouse.x, 0, state.width);
+  input.mouse.y = clamp(input.mouse.y, 0, state.height);
+  setCrosshairPosition(input.mouse.x, input.mouse.y);
 }
 
 function screenToWorld(x, y) {
@@ -2164,6 +2168,8 @@ window.addEventListener('blur', () => {
   input.shooting = false;
   if (state.running) pauseGame();
 });
+
+window.addEventListener('resize', resizeCanvas);
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && state.running && !state.paused) {
