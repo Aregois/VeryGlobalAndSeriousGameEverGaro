@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Very Global and Serious Game Ever Garo</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main id="game-root">
+    <canvas id="game-canvas" aria-label="Game canvas" role="presentation"></canvas>
+    <div id="crosshair" class="crosshair" aria-hidden="true"></div>
+    <div id="utility-bar">
+      <button id="help-button" type="button">Help</button>
+      <button id="audio-button" type="button">Audio: On</button>
+      <button id="music-button" type="button">Music: On</button>
+      <button id="effects-button" type="button">Effects: On</button>
+      <button id="stats-button" type="button">Stats: Off</button>
+      <button id="reset-settings" type="button">Reset settings</button>
+      <div class="control-card">
+        <label for="sensitivity-slider">Sensitivity</label>
+        <input id="sensitivity-slider" type="range" min="40" max="200" step="1" value="100" />
+        <span id="sensitivity-value">100%</span>
+      </div>
+      <div class="control-card">
+        <label for="crosshair-size">Crosshair</label>
+        <input id="crosshair-size" type="range" min="14" max="48" step="1" value="24" />
+        <span id="crosshair-size-value">24px</span>
+      </div>
+      <div class="control-card">
+        <label for="crosshair-color">Color</label>
+        <input id="crosshair-color" type="color" value="#ffffff" />
+      </div>
+      <div class="control-card">
+        <label for="volume-slider">SFX</label>
+        <input id="volume-slider" type="range" min="0" max="100" step="1" value="100" />
+        <span id="volume-value">100%</span>
+      </div>
+      <div class="control-card">
+        <label for="music-volume-slider">Music</label>
+        <input id="music-volume-slider" type="range" min="0" max="100" step="1" value="100" />
+        <span id="music-volume-value">100%</span>
+      </div>
+      <button id="fullscreen-button" type="button">Toggle Fullscreen</button>
+    </div>
+    <section id="hud">
+      <div id="stats-readout" aria-live="off"></div>
+      <div class="hud-bar">
+        <div class="hud-group">
+          <span class="label">Health</span>
+          <span id="hud-health" class="value">100</span>
+        </div>
+        <div class="hud-group">
+          <span class="label">Armor</span>
+          <span id="hud-armor" class="value">0</span>
+        </div>
+        <div class="hud-group">
+          <span class="label">Weapon</span>
+          <span id="hud-weapon" class="value">Revolver</span>
+        </div>
+        <div class="hud-group">
+          <span class="label">Ammo</span>
+          <span id="hud-ammo" class="value">∞</span>
+        </div>
+        <div class="hud-group">
+          <span class="label">Wave</span>
+          <span id="hud-wave" class="value">0 / 0</span>
+        </div>
+        <div class="hud-group">
+          <span class="label">Left</span>
+          <span id="hud-remaining" class="value">0</span>
+        </div>
+        <div class="hud-group">
+          <span class="label">Score</span>
+          <span id="hud-score" class="value">0</span>
+        </div>
+      </div>
+      <div class="hud-bar secondary">
+        <div class="hud-group">
+          <span class="label">Status</span>
+          <span id="hud-status" class="value">None</span>
+        </div>
+      </div>
+      <div id="buffs" class="hud-buffs" aria-live="polite">
+        <div id="buff-serious" class="buff">
+          <span class="label">Serious Damage</span>
+          <div class="buff-meter">
+            <div id="buff-serious-fill" class="buff-fill"></div>
+          </div>
+          <span id="buff-serious-timer" class="value">0s</span>
+        </div>
+        <div id="buff-haste" class="buff">
+          <span class="label">Speed Boost</span>
+          <div class="buff-meter">
+            <div id="buff-haste-fill" class="buff-fill"></div>
+          </div>
+          <span id="buff-haste-timer" class="value">0s</span>
+        </div>
+      </div>
+      <div id="boss-health" class="boss-bar" aria-live="polite">
+        <div class="boss-label" id="boss-bar-label">Boss</div>
+        <div class="boss-meter">
+          <div id="boss-bar-fill" class="boss-fill"></div>
+        </div>
+      </div>
+    </section>
+    <section id="overlay" class="overlay visible">
+      <div class="panel">
+        <h1 id="overlay-title">Garo's First Encounter</h1>
+        <p id="overlay-description">Browser-based 2D pseudo-3D shooter prototype.</p>
+        <div class="control-row">
+          <label for="difficulty-select">Difficulty</label>
+          <select id="difficulty-select" name="difficulty">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+      <button id="start-button" type="button">Start</button>
+      <div class="best-panel">
+        <div class="best-header">
+          <h2>Best runs (local)</h2>
+          <button id="reset-progress" type="button">Reset stats</button>
+          </div>
+          <div id="best-runs" class="best-runs" aria-live="polite"></div>
+        </div>
+        <div id="overlay-summary" class="summary" aria-live="polite"></div>
+        <p class="hint">
+          WASD to move · Mouse to aim · Left click to fire (explosions hurt) · 1-8 to switch weapons (8 = Knife) or scroll/Q/E
+          to cycle · ESC/P to pause/unlock the mouse · Starting or resuming captures the pointer for centered crosshair control ·
+          Press **Help** (or H) anytime for a quick controls/buff cheat sheet · Buff bars show remaining Serious Damage/Speed time, the wave/left HUD readout shows how many waves remain, a brief
+          intermission timer calls out the next wave, and a boss bar appears for Ugh-Zan · Use the adaptive synth soundtrack
+          (Audio toggle) or silence just the music with the Music toggle, balance loudness with separate SFX/Music sliders,
+          and use the Effects toggle, sensitivity slider, crosshair size/color controls, and the Stats toggle (shows FPS/frame
+          time) to tune feedback/aim feel—settings persist and **Reset settings** restores defaults · Use the difficulty dropdown
+          to scale enemy intensity and scoring · Grab Serious Damage and Speed pickups to stack temporary buffs · Best runs are
+          saved per difficulty in your browser and can be reset anytime
+        </p>
+      </div>
+    </section>
+    <section id="pause" class="overlay">
+      <div class="panel">
+        <h2>Paused</h2>
+        <button id="resume-button" type="button">Resume</button>
+      </div>
+    </section>
+    <section id="help" class="overlay">
+      <div class="panel help-panel">
+        <div class="panel-header">
+          <h2>Controls &amp; tips</h2>
+          <button id="close-help" type="button" class="inline-button">Close</button>
+        </div>
+        <div class="help-grid">
+          <div>
+            <h3>Movement &amp; combat</h3>
+            <ul>
+              <li>WASD to move, mouse to aim, left click to fire.</li>
+              <li>1-8 (or scroll/Q/E) to switch weapons; 8 is the Knife.</li>
+              <li>ESC or P to pause/unlock the mouse; starting/resuming captures the pointer.</li>
+              <li>Explosions hurt you—give rockets and kamikazes space.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Pickups &amp; buffs</h3>
+            <ul>
+              <li>Grab health, armor, and ammo (shells/SMG/rockets/cells/cannonballs) between waves.</li>
+              <li>Purple Serious Damage doubles outgoing damage; teal Speed boosts movement.</li>
+              <li>Buff bars show remaining timers; boss bar appears for Ugh-Zan.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Settings</h3>
+            <ul>
+              <li>Audio/Music toggles + sliders balance SFX and soundtrack levels.</li>
+              <li>Effects toggle removes shake/flash; sensitivity and crosshair size/color tune aim feel.</li>
+              <li>Stats toggle shows FPS/frame time; Reset settings restores defaults.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
