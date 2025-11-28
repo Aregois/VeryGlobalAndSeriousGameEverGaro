@@ -1795,6 +1795,216 @@ function buildKleerSpriteFrames(baseSize, drawShadow) {
   return { idle, run, attack, death };
 }
 
+function buildWerebullSpriteFrames(baseSize, drawShadow) {
+  const makeFrame = (draw) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = baseSize;
+    canvas.height = baseSize;
+    const ctx = canvas.getContext('2d');
+    ctx.translate(baseSize / 2, baseSize / 2);
+    draw(ctx);
+    return canvas;
+  };
+
+  const colors = {
+    coatDark: '#2f1b12',
+    coatMid: '#4a2a18',
+    coatLight: '#8b5e34',
+    horn: '#e5e7eb',
+    hoof: '#111827',
+    outline: '#0b0f1a',
+    dust: '#b45309',
+  };
+
+  const drawDust = (ctx, t, intensity) => {
+    const puffCount = 5;
+    for (let i = 0; i < puffCount; i += 1) {
+      const seed = (t + i * 0.13) % 1;
+      const life = 1 - seed;
+      const size = 6 + 20 * life * intensity;
+      const offsetX = -20 - i * 6 + Math.sin(seed * Math.PI * 2) * 6;
+      const offsetY = 26 + i * 3 + seed * 10;
+      const grad = ctx.createRadialGradient(offsetX, offsetY, 2, offsetX, offsetY, size);
+      grad.addColorStop(0, `rgba(180,83,9,${0.4 * life * intensity})`);
+      grad.addColorStop(1, 'rgba(180,83,9,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(offsetX, offsetY, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+
+  const drawHead = (ctx, lean, breath) => {
+    ctx.save();
+    ctx.translate(0, -14 + breath * 0.5);
+    ctx.rotate(lean * 0.1);
+
+    ctx.fillStyle = colors.horn;
+    ctx.strokeStyle = colors.outline;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-16, -10);
+    ctx.lineTo(-32, -28);
+    ctx.lineTo(-20, -12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(16, -10);
+    ctx.lineTo(32, -28);
+    ctx.lineTo(20, -12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    const skullGrad = ctx.createLinearGradient(-16, -12, 16, 16);
+    skullGrad.addColorStop(0, colors.coatLight);
+    skullGrad.addColorStop(1, colors.coatMid);
+    ctx.fillStyle = skullGrad;
+    ctx.strokeStyle = colors.outline;
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 18, 16, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.arc(-6, -2, 3.5, 0, Math.PI * 2);
+    ctx.arc(6, -2, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    const snort = 1 + Math.sin(performance.now() * 0.002) * 0.35;
+    const nostrilGrad = ctx.createRadialGradient(0, 10, 2, 0, 10, 8);
+    nostrilGrad.addColorStop(0, `rgba(255,255,255,${0.25 * snort})`);
+    nostrilGrad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = nostrilGrad;
+    ctx.beginPath();
+    ctx.arc(0, 10, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+
+  const drawBody = (ctx, lean, bob, mode) => {
+    ctx.save();
+    ctx.translate(0, bob);
+    ctx.rotate(lean * 0.08);
+    const bodyGrad = ctx.createLinearGradient(-30, -22, 30, 34);
+    bodyGrad.addColorStop(0, colors.coatDark);
+    bodyGrad.addColorStop(0.4, colors.coatMid);
+    bodyGrad.addColorStop(1, colors.coatLight);
+    ctx.fillStyle = bodyGrad;
+    ctx.strokeStyle = colors.outline;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.ellipse(0, 4, 42, 34, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    const shoulderGrad = ctx.createLinearGradient(-28, -12, 28, 18);
+    shoulderGrad.addColorStop(0, 'rgba(0,0,0,0.25)');
+    shoulderGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = shoulderGrad;
+    ctx.beginPath();
+    ctx.ellipse(-16, -6, 16, 12, -0.3, 0, Math.PI * 2);
+    ctx.ellipse(16, -6, 16, 12, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (mode === 'attack') {
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.beginPath();
+      ctx.ellipse(0, -4, 22, 12, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  };
+
+  const drawLegs = (ctx, phase, lean, mode) => {
+    ctx.save();
+    const stride = Math.sin(phase * 2 * Math.PI) * 10;
+    const lift = Math.cos(phase * 2 * Math.PI) * 6;
+    const attackLift = mode === 'attack' ? 10 : 0;
+
+    const leg = (x, offset, front = false, stomp = false) => {
+      ctx.save();
+      ctx.translate(x + stride * offset, 20 + lift * offset - attackLift * (front ? 1 : 0));
+      ctx.rotate(lean * 0.05 + (front ? -0.05 : 0.05));
+      ctx.fillStyle = colors.coatMid;
+      ctx.strokeStyle = colors.outline;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.roundRect(-6, -6, 12, 30, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = colors.hoof;
+      ctx.beginPath();
+      ctx.roundRect(-8, 18, 16, 8 + (stomp ? 6 : 0), 4);
+      ctx.fill();
+      ctx.restore();
+    };
+
+    leg(-16, 1, false, mode === 'attack');
+    leg(16, -1, false, mode === 'attack');
+    leg(-22, -1, true, mode === 'attack');
+    leg(22, 1, true, mode === 'attack');
+    ctx.restore();
+  };
+
+  const drawPose = (ctx, t, mode) => {
+    const lean = mode === 'run' || mode === 'attack' ? 0.2 + Math.sin(t * Math.PI * 2) * 0.05 : 0.05;
+    const bob = Math.sin(t * Math.PI * 2) * (mode === 'idle' ? 3 : 5);
+    const dustIntensity = mode === 'run' || mode === 'attack' ? 1 : 0.3;
+    drawShadow(ctx, 34, 0.32);
+    drawDust(ctx, t, dustIntensity);
+    drawLegs(ctx, t, lean, mode);
+    drawBody(ctx, lean, bob, mode);
+    drawHead(ctx, lean, bob);
+  };
+
+  const drawImpact = (ctx, t) => {
+    const strength = Math.min(1, t * 1.2);
+    const pulse = 12 + strength * 24;
+    const grad = ctx.createRadialGradient(0, 18, 4, 0, 18, pulse);
+    grad.addColorStop(0, 'rgba(255,230,170,0.4)');
+    grad.addColorStop(1, 'rgba(255,230,170,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 18, pulse, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  const drawDeath = (ctx, t) => {
+    const fall = t * Math.PI * 0.5;
+    ctx.save();
+    ctx.rotate(-fall * 0.8);
+    ctx.translate(-t * 16, t * 20);
+    drawPose(ctx, Math.max(0, t * 0.5), 'death');
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(t * 10 - 10, 28 + t * 8);
+    ctx.rotate(-0.3);
+    ctx.fillStyle = colors.hoof;
+    ctx.beginPath();
+    ctx.roundRect(-6, -2, 14, 8, 3);
+    ctx.fill();
+    ctx.restore();
+  };
+
+  return {
+    idle: new Array(6).fill(0).map((_, i) => makeFrame((ctx) => drawPose(ctx, i / 6, 'idle'))),
+    run: new Array(8).fill(0).map((_, i) => makeFrame((ctx) => drawPose(ctx, i / 8, 'run'))),
+    attack: new Array(6).fill(0).map((_, i) => makeFrame((ctx) => {
+      const t = i / 6;
+      drawPose(ctx, t, 'attack');
+      drawImpact(ctx, t);
+    })),
+    death: new Array(10).fill(0).map((_, i) => makeFrame((ctx) => drawDeath(ctx, i / 10))),
+  };
+}
+
 class EnemySpriteFactory {
   constructor() {
     this.frameCache = new Map();
@@ -1873,60 +2083,7 @@ class EnemySpriteFactory {
   }
 
   buildWerebull() {
-    const drawPose = (ctx, phase, mode = 'run') => {
-      const charge = Math.sin(phase * Math.PI * 2) * (mode === 'idle' ? 4 : 10);
-      this.drawShadow(ctx, 32, 0.26);
-      ctx.save();
-      ctx.translate(0, mode === 'attack' ? 2 : 0);
-      const hideGrad = ctx.createLinearGradient(0, -32, 0, 38);
-      hideGrad.addColorStop(0, '#7c2d12');
-      hideGrad.addColorStop(1, '#d97706');
-      ctx.fillStyle = hideGrad;
-      ctx.beginPath();
-      ctx.ellipse(0, charge * 0.2, 34, 30, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#f3f4f6';
-      ctx.beginPath();
-      ctx.arc(0, -14 + charge * 0.25, 18, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#fbbf24';
-      ctx.beginPath();
-      ctx.moveTo(-18, -2 + charge * 0.3);
-      ctx.lineTo(-30, -22 + charge * 0.3);
-      ctx.lineTo(-6, -10 + charge * 0.25);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(18, -2 + charge * 0.3);
-      ctx.lineTo(30, -22 + charge * 0.3);
-      ctx.lineTo(6, -10 + charge * 0.25);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.fillStyle = '#0ea5e9';
-      ctx.beginPath();
-      ctx.moveTo(-10 - charge * 0.3, 16);
-      ctx.lineTo(-32 - charge * 0.4, 30);
-      ctx.lineTo(-4 - charge * 0.2, 26);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(10 + charge * 0.3, 16);
-      ctx.lineTo(32 + charge * 0.4, 30);
-      ctx.lineTo(4 + charge * 0.2, 26);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    };
-
-    return {
-      idle: this.createFrames(6, (ctx, t) => drawPose(ctx, t, 'idle')),
-      run: this.createFrames(8, (ctx, t) => drawPose(ctx, t, 'run')),
-      attack: this.createFrames(6, (ctx, t) => drawPose(ctx, t, 'attack')),
-      death: this.createFrames(4, (ctx, t) => drawPose(ctx, t, 'death')),
-    };
+    return buildWerebullSpriteFrames(this.baseSize, (ctx, size, opacity) => this.drawShadow(ctx, size, opacity));
   }
 
   buildHarpy() {
