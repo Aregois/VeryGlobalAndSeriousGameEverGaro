@@ -1459,6 +1459,179 @@ function drawGaroSprite(angle, timeSeconds) {
   ctx.restore();
 }
 
+function buildKamikazeSpriteFrames(baseSize, drawShadow) {
+  const makeFrame = (draw) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = baseSize;
+    canvas.height = baseSize;
+    const ctx = canvas.getContext('2d');
+    ctx.translate(baseSize / 2, baseSize / 2);
+    draw(ctx);
+    return canvas;
+  };
+
+  const drawStrap = (ctx, wobble, thickness = 8) => {
+    ctx.save();
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = thickness;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-24, -40 + wobble);
+    ctx.lineTo(24, 40 + wobble);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(24, -40 + wobble);
+    ctx.lineTo(-24, 40 + wobble);
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const drawBomb = (ctx, x, y, scale, fusePhase, shake) => {
+    ctx.save();
+    ctx.translate(x + shake, y + shake * 0.5);
+    ctx.scale(scale, scale);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#0f172a';
+
+    const shellGrad = ctx.createLinearGradient(-20, -20, 20, 20);
+    shellGrad.addColorStop(0, '#0f172a');
+    shellGrad.addColorStop(1, '#1f2937');
+    ctx.fillStyle = shellGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#334155';
+    ctx.strokeStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.roundRect(-10, -12, 20, 10, 3);
+    ctx.fill();
+    ctx.stroke();
+
+    const fuseGlow = 0.35 + 0.55 * Math.abs(Math.sin(fusePhase));
+    const fuseColor = `rgba(255,60,60,${fuseGlow})`;
+    ctx.fillStyle = fuseColor;
+    ctx.strokeStyle = '#7f1d1d';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, -20, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const drawTorso = (ctx, wobble, tense, flash) => {
+    const bodyGrad = ctx.createLinearGradient(0, -44, 0, 44);
+    bodyGrad.addColorStop(0, flash ? '#fcd34d' : '#6b2f1a');
+    bodyGrad.addColorStop(1, flash ? '#fb923c' : '#c2410c');
+
+    ctx.save();
+    ctx.scale(1 + tense * 0.05, 1 - tense * 0.06);
+    ctx.fillStyle = bodyGrad;
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.ellipse(0, wobble * 0.3, 28, 38, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const drawArms = (ctx, phase, swing, tension) => {
+    ctx.save();
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-20, -12 + swing);
+    ctx.quadraticCurveTo(-34, 10 - swing * 0.5, -18, 30 - swing * 0.25 + tension);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(20, -12 - swing);
+    ctx.quadraticCurveTo(34, 10 + swing * 0.5, 18, 30 + swing * 0.25 + tension);
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const drawPose = (ctx, t, mode) => {
+    const phase = t * Math.PI * 2;
+    const wobble = Math.sin(phase) * (mode === 'idle' ? 6 : 12);
+    const swing = Math.sin(phase * 2) * (mode === 'run' ? 14 : 6);
+    const tension = mode === 'attack' ? Math.sin(phase * 3) * 8 : 0;
+    drawShadow(ctx, 28, 0.34);
+    ctx.save();
+    ctx.translate(0, wobble * 0.15);
+
+    drawStrap(ctx, wobble * 0.1, 7);
+    drawArms(ctx, phase, swing, tension);
+    drawTorso(ctx, wobble, tension * 0.3, mode === 'attack' && t > 0.5);
+
+    const shake = Math.sin(phase * 2) * (mode === 'run' ? 3.5 : 1.5);
+    drawBomb(ctx, -20, 14, 1.08, phase * (mode === 'attack' ? 6 : 3), shake);
+    drawBomb(ctx, 20, 14, 1.08, Math.PI + phase * (mode === 'attack' ? 6 : 3), -shake);
+
+    ctx.restore();
+  };
+
+  const drawExplosion = (ctx, t, fadeScale = 1) => {
+    const expansion = 18 + t * 42 * fadeScale;
+    const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, expansion);
+    glow.addColorStop(0, `rgba(255,213,128,${1 - t})`);
+    glow.addColorStop(0.5, `rgba(252,165,54,${0.7 - t * 0.5})`);
+    glow.addColorStop(1, 'rgba(15,23,42,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, expansion, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = `rgba(15,23,42,${0.8 - t})`;
+    ctx.lineWidth = 6 * (1 - t);
+    ctx.beginPath();
+    ctx.arc(0, 0, expansion * 0.8, 0, Math.PI * 2);
+    ctx.stroke();
+  };
+
+  const createSequence = (count, drawer) => {
+    const frames = [];
+    for (let i = 0; i < count; i += 1) {
+      frames.push(makeFrame((ctx) => drawer(ctx, i / count)));
+    }
+    return frames;
+  };
+
+  const idle = createSequence(6, (ctx, t) => drawPose(ctx, t, 'idle'));
+  const run = createSequence(8, (ctx, t) => drawPose(ctx, t, 'run'));
+  const attack = createSequence(10, (ctx, t) => {
+    drawPose(ctx, t, 'attack');
+    if (t > 0.5) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      drawExplosion(ctx, (t - 0.5) / 0.5, 0.65);
+      ctx.restore();
+    }
+  });
+  const death = createSequence(8, (ctx, t) => {
+    drawPose(ctx, t, 'death');
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    drawExplosion(ctx, t, 0.8);
+    ctx.restore();
+
+    ctx.fillStyle = `rgba(15,23,42,${0.8 - t * 0.8})`;
+    for (let i = 0; i < 6; i += 1) {
+      const angle = (Math.PI * 2 * i) / 6;
+      const dist = 12 + t * 36;
+      ctx.beginPath();
+      ctx.ellipse(Math.cos(angle) * dist, Math.sin(angle) * dist, 4, 6, angle, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+
+  return { idle, run, attack, death };
+}
+
 class EnemySpriteFactory {
   constructor() {
     this.frameCache = new Map();
@@ -1529,50 +1702,7 @@ class EnemySpriteFactory {
   }
 
   buildKamikaze() {
-    const drawPose = (ctx, phase, mode = 'run') => {
-      const wobble = Math.sin(phase * Math.PI * 2) * 8 * (mode === 'idle' ? 0.4 : 1);
-      this.drawShadow(ctx, 26, 0.32);
-      ctx.save();
-      ctx.rotate(0.05 * wobble * 0.01);
-      const bodyGrad = ctx.createLinearGradient(0, -30, 0, 32);
-      bodyGrad.addColorStop(0, '#4b1d0d');
-      bodyGrad.addColorStop(1, '#c2410c');
-      ctx.fillStyle = bodyGrad;
-      ctx.beginPath();
-      ctx.ellipse(0, wobble * 0.3, 24, 32, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      const fuseGlow = 0.45 + 0.4 * Math.abs(Math.sin(phase * Math.PI * 2 * (mode === 'attack' ? 3 : 2)));
-      ctx.fillStyle = `rgba(255,198,65,${fuseGlow})`;
-      ctx.beginPath();
-      ctx.arc(26, -6 + wobble * 0.2, 6, 0, Math.PI * 2);
-      ctx.arc(26, 10 + wobble * 0.2, 6, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = '#0f172a';
-      ctx.lineWidth = 5;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(-10, -18 + wobble * 0.2);
-      ctx.quadraticCurveTo(-20, wobble * 0.5, -10, 18 + wobble * 0.2);
-      ctx.stroke();
-
-      ctx.fillStyle = '#0ea5e9';
-      ctx.beginPath();
-      ctx.arc(-12, -2 + wobble * 0.2, 6, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#0b1020';
-      ctx.fillRect(-12, -4 + wobble * 0.2, 24, 10);
-      ctx.restore();
-    };
-
-    return {
-      idle: this.createFrames(6, (ctx, t) => drawPose(ctx, t, 'idle')),
-      run: this.createFrames(8, (ctx, t) => drawPose(ctx, t, 'run')),
-      attack: this.createFrames(6, (ctx, t) => drawPose(ctx, t, 'attack')),
-      death: this.createFrames(4, (ctx, t) => drawPose(ctx, t, 'death')),
-    };
+    return buildKamikazeSpriteFrames(this.baseSize, (ctx, size, opacity) => this.drawShadow(ctx, size, opacity));
   }
 
   buildKleer() {
