@@ -748,6 +748,7 @@ const enemies = [];
 const pickups = [];
 const explosions = [];
 const bossShockwaves = [];
+const enemyMotionCache = new WeakMap();
 
 const weapons = {
   Knife: {
@@ -905,6 +906,18 @@ const enemyTypes = {
     fireRate: 1.1,
     projectileSpeed: 360,
   },
+};
+
+const enemyVisualBase = {
+  Kamikaze: 64,
+  Kleer: 70,
+  Werebull: 78,
+  Harpy: 60,
+  'BioMech Minor': 88,
+  'BioMech Major': 104,
+  Gnaar: 60,
+  Reptiloid: 80,
+  UghZan: 140,
 };
 
 let activeLevel = levels.egypt;
@@ -1446,180 +1459,389 @@ function drawGaroSprite(angle, timeSeconds) {
   ctx.restore();
 }
 
-function drawEnemySprite(enemy, angle, timeSeconds) {
-  const baseRadius = enemy.radius;
-  ctx.save();
-  ctx.rotate(angle);
-  const bob = Math.sin(timeSeconds * 5 + (enemy.x + enemy.y) * 0.01) * 2.5;
+class EnemySpriteFactory {
+  constructor() {
+    this.frameCache = new Map();
+    this.baseSize = 140;
+  }
 
-  switch (enemy.type) {
-    case 'Kamikaze': {
-      const pulse = 0.3 + 0.25 * (1 + Math.sin(timeSeconds * 9));
-      ctx.fillStyle = '#c2410c';
-      ctx.beginPath();
-      ctx.ellipse(0, bob * 0.6, baseRadius * 0.8, baseRadius * 1.05, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#1f2937';
-      ctx.fillRect(-baseRadius * 0.45, -baseRadius * 0.7 + bob * 0.3, baseRadius * 0.9, baseRadius * 0.3);
-      ctx.fillStyle = `rgba(250, 204, 21, ${0.5 + pulse * 0.8})`;
-      ctx.beginPath();
-      ctx.arc(baseRadius * 0.95, -baseRadius * 0.2 + bob * 0.1, baseRadius * 0.28, 0, Math.PI * 2);
-      ctx.arc(baseRadius * 0.95, baseRadius * 0.2 + bob * 0.1, baseRadius * 0.28, 0, Math.PI * 2);
-      ctx.fill();
-      break;
+  getFrames(type) {
+    if (!this.frameCache.has(type)) {
+      this.frameCache.set(type, this.buildFramesFor(type));
     }
-    case 'Kleer': {
-      const clawSwing = Math.sin(timeSeconds * 6 + enemy.x * 0.05) * baseRadius * 0.25;
-      ctx.fillStyle = '#e5e7eb';
-      ctx.beginPath();
-      ctx.ellipse(0, bob * 0.4, baseRadius * 0.9, baseRadius * 1.1, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#b45309';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(-baseRadius * 0.6, -baseRadius * 0.8 + bob * 0.4);
-      ctx.quadraticCurveTo(0, -baseRadius * 1.2 + bob * 0.4, baseRadius * 0.6, -baseRadius * 0.8 + bob * 0.4);
-      ctx.stroke();
-      ctx.fillStyle = '#9ca3af';
-      ctx.beginPath();
-      ctx.moveTo(-baseRadius * 0.4 - clawSwing, baseRadius * 0.32 + bob * 0.2);
-      ctx.lineTo(-baseRadius * 0.8 - clawSwing, baseRadius * 0.78 + bob * 0.1);
-      ctx.lineTo(-baseRadius * 0.25 - clawSwing * 0.6, baseRadius * 0.54 + bob * 0.15);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(baseRadius * 0.4 + clawSwing, baseRadius * 0.32 + bob * 0.2);
-      ctx.lineTo(baseRadius * 0.8 + clawSwing, baseRadius * 0.78 + bob * 0.1);
-      ctx.lineTo(baseRadius * 0.25 + clawSwing * 0.6, baseRadius * 0.54 + bob * 0.15);
-      ctx.closePath();
-      ctx.fill();
-      break;
-    }
-    case 'Gnaar': {
-      const snarl = Math.sin(timeSeconds * 5 + enemy.y * 0.05) * baseRadius * 0.1;
-      ctx.fillStyle = '#a16207';
-      ctx.beginPath();
-      ctx.ellipse(0, bob * 0.2, baseRadius * 0.95, baseRadius * 1.05, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#fef08a';
-      ctx.beginPath();
-      ctx.arc(0, -baseRadius * 0.3 + snarl, baseRadius * 0.45, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#1f2937';
-      ctx.beginPath();
-      ctx.arc(-baseRadius * 0.2, -baseRadius * 0.35 + snarl, baseRadius * 0.1, 0, Math.PI * 2);
-      ctx.arc(baseRadius * 0.2, -baseRadius * 0.35 + snarl, baseRadius * 0.1, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#b91c1c';
-      ctx.fillRect(-baseRadius * 0.35, baseRadius * 0.1 + bob * 0.1, baseRadius * 0.7, baseRadius * 0.35);
-      break;
-    }
-    case 'BioMech': {
-      const hum = 0.3 + 0.2 * Math.sin(timeSeconds * 4 + enemy.y * 0.03);
-      ctx.fillStyle = '#312e81';
-      ctx.fillRect(-baseRadius, -baseRadius * 0.9 + bob * 0.2, baseRadius * 1.9, baseRadius * 1.8);
-      ctx.fillStyle = '#22d3ee';
-      ctx.fillRect(-baseRadius * 0.9, -baseRadius * 1.1 + bob * 0.1, baseRadius * 0.65, baseRadius * 0.65);
-      ctx.fillRect(baseRadius * 0.25, -baseRadius * 1.1 + bob * 0.1, baseRadius * 0.65, baseRadius * 0.65);
-      ctx.fillStyle = `rgba(52, 211, 153, ${0.4 + hum})`;
-      ctx.fillRect(-baseRadius * 0.35, baseRadius * 0.1 + bob * 0.1, baseRadius * 0.7, baseRadius * 0.95);
-      break;
-    }
-    case 'Werebull': {
-      const gallop = Math.sin(timeSeconds * 7 + enemy.x * 0.02) * baseRadius * 0.2;
-      ctx.fillStyle = '#92400e';
-      ctx.beginPath();
-      ctx.ellipse(0, baseRadius * 0.12 + bob * 0.3, baseRadius * 1.25, baseRadius * 0.95, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#0b0f1a';
-      ctx.beginPath();
-      ctx.arc(-baseRadius * 0.6, -baseRadius * 0.7 + gallop, baseRadius * 0.38, 0, Math.PI * 2);
-      ctx.arc(baseRadius * 0.6, -baseRadius * 0.7 - gallop, baseRadius * 0.38, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#fef3c7';
-      ctx.beginPath();
-      ctx.arc(0, -baseRadius * 0.35 + bob * 0.1, baseRadius * 0.55, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillRect(-baseRadius * 0.75, baseRadius * 0.65 + bob * 0.2, baseRadius * 1.5, baseRadius * 0.2);
-      break;
-    }
-    case 'Harpy': {
-      const flap = Math.sin(timeSeconds * 10 + enemy.x * 0.1) * 0.6 + 0.9;
-      ctx.fillStyle = '#fbbf24';
-      ctx.beginPath();
-      ctx.ellipse(0, bob * 0.3, baseRadius * 0.9, baseRadius * 1, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#312e81';
-      ctx.beginPath();
-      ctx.moveTo(-baseRadius * 1.6, 0);
-      ctx.quadraticCurveTo(-baseRadius * 0.4, -baseRadius * flap, 0, baseRadius * 0.3 + bob * 0.1);
-      ctx.quadraticCurveTo(baseRadius * 0.4, -baseRadius * flap, baseRadius * 1.6, 0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#f9a8d4';
-      ctx.beginPath();
-      ctx.arc(0, -baseRadius * 0.5 + bob * 0.1, baseRadius * 0.38, 0, Math.PI * 2);
-      ctx.fill();
-      break;
-    }
-    case 'UghZan': {
-      const throb = 0.1 + 0.05 * Math.sin(timeSeconds * 3);
-      ctx.fillStyle = '#fb923c';
-      ctx.beginPath();
-      ctx.ellipse(0, bob * 0.3, baseRadius * 1.3, baseRadius * 1.45, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#7c2d12';
-      ctx.fillRect(-baseRadius * 0.26, -baseRadius * 1.5 + bob * 0.2, baseRadius * 0.52, baseRadius * 0.9);
-      ctx.fillStyle = '#fcd34d';
-      ctx.beginPath();
-      ctx.arc(-baseRadius * 0.4, -baseRadius * 0.55 + bob * 0.1, baseRadius * 0.3, 0, Math.PI * 2);
-      ctx.arc(baseRadius * 0.4, -baseRadius * 0.55 + bob * 0.1, baseRadius * 0.3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = `rgba(59, 130, 246, ${0.5 + throb})`;
-      ctx.fillRect(-baseRadius * 0.6, baseRadius * 0.6 + bob * 0.2, baseRadius * 1.2, baseRadius * 0.36);
-      ctx.strokeStyle = 'rgba(60, 16, 83, 0.4)';
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.moveTo(-baseRadius * 1.1, -baseRadius * 0.1 + bob * 0.2);
-      ctx.quadraticCurveTo(-baseRadius * 0.5, -baseRadius * 0.8 + bob * 0.1, 0, -baseRadius * 0.2);
-      ctx.quadraticCurveTo(baseRadius * 0.5, -baseRadius * 0.8 + bob * 0.1, baseRadius * 1.1, -baseRadius * 0.1 + bob * 0.2);
-      ctx.stroke();
-      break;
-    }
-    case 'Reptiloid': {
-      const sway = Math.sin(timeSeconds * 6 + enemy.x * 0.08) * baseRadius * 0.2;
-      ctx.fillStyle = '#0ea5e9';
-      ctx.beginPath();
-      ctx.ellipse(0, bob * 0.3, baseRadius * 1.05, baseRadius * 0.9, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.moveTo(-baseRadius * 0.4 + sway, baseRadius * 0.2 + bob * 0.1);
-      ctx.lineTo(0 + sway * 0.4, -baseRadius * 0.9 + bob * 0.1);
-      ctx.lineTo(baseRadius * 0.4 + sway, baseRadius * 0.2 + bob * 0.1);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = '#f97316';
-      ctx.fillRect(baseRadius * 0.62, baseRadius * 0.05 + bob * 0.1, baseRadius * 0.6, baseRadius * 0.3);
-      ctx.fillRect(-baseRadius * 1.22, baseRadius * 0.05 + bob * 0.1, baseRadius * 0.6, baseRadius * 0.3);
-      ctx.strokeStyle = 'rgba(34,197,94,0.45)';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(-baseRadius * 0.6 + sway * 0.4, baseRadius * 0.4 + bob * 0.1);
-      ctx.quadraticCurveTo(-baseRadius * 0.8, baseRadius * 0.7, -baseRadius * 0.2, baseRadius * 0.95);
-      ctx.stroke();
-      break;
-    }
-    default: {
-      ctx.fillStyle = enemy.color;
-      ctx.beginPath();
-      ctx.arc(0, bob * 0.2, baseRadius, 0, Math.PI * 2);
-      ctx.fill();
-      break;
+    return this.frameCache.get(type);
+  }
+
+  buildFramesFor(type) {
+    switch (type) {
+      case 'Kamikaze':
+        return this.buildKamikaze();
+      case 'Kleer':
+        return this.buildKleer();
+      case 'Werebull':
+        return this.buildWerebull();
+      case 'Harpy':
+        return this.buildHarpy();
+      case 'BioMech Minor':
+        return this.buildBioMech(false);
+      case 'BioMech Major':
+        return this.buildBioMech(true);
+      default:
+        return this.buildFallback();
     }
   }
 
+  pickFrame(frames, timeSeconds, speed = 8) {
+    if (!frames || frames.length === 0) return null;
+    const index = Math.floor(timeSeconds * speed) % frames.length;
+    return frames[index];
+  }
+
+  createFrame(draw) {
+    const canvas = document.createElement('canvas');
+    canvas.width = this.baseSize;
+    canvas.height = this.baseSize;
+    const context = canvas.getContext('2d');
+    context.translate(this.baseSize / 2, this.baseSize / 2);
+    draw(context);
+    return canvas;
+  }
+
+  createFrames(count, draw) {
+    const frames = [];
+    for (let i = 0; i < count; i += 1) {
+      frames.push(this.createFrame((ctx) => draw(ctx, i / count)));
+    }
+    return frames;
+  }
+
+  drawShadow(ctx, size, opacity = 0.3) {
+    const gradient = ctx.createRadialGradient(0, 0, size * 0.15, 0, 0, size * 0.7);
+    gradient.addColorStop(0, `rgba(15,23,42,${opacity})`);
+    gradient.addColorStop(1, 'rgba(15,23,42,0)');
+    ctx.save();
+    ctx.scale(1, 0.5);
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(0, 0, size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  buildKamikaze() {
+    const drawPose = (ctx, phase, mode = 'run') => {
+      const wobble = Math.sin(phase * Math.PI * 2) * 8 * (mode === 'idle' ? 0.4 : 1);
+      this.drawShadow(ctx, 26, 0.32);
+      ctx.save();
+      ctx.rotate(0.05 * wobble * 0.01);
+      const bodyGrad = ctx.createLinearGradient(0, -30, 0, 32);
+      bodyGrad.addColorStop(0, '#4b1d0d');
+      bodyGrad.addColorStop(1, '#c2410c');
+      ctx.fillStyle = bodyGrad;
+      ctx.beginPath();
+      ctx.ellipse(0, wobble * 0.3, 24, 32, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      const fuseGlow = 0.45 + 0.4 * Math.abs(Math.sin(phase * Math.PI * 2 * (mode === 'attack' ? 3 : 2)));
+      ctx.fillStyle = `rgba(255,198,65,${fuseGlow})`;
+      ctx.beginPath();
+      ctx.arc(26, -6 + wobble * 0.2, 6, 0, Math.PI * 2);
+      ctx.arc(26, 10 + wobble * 0.2, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-10, -18 + wobble * 0.2);
+      ctx.quadraticCurveTo(-20, wobble * 0.5, -10, 18 + wobble * 0.2);
+      ctx.stroke();
+
+      ctx.fillStyle = '#0ea5e9';
+      ctx.beginPath();
+      ctx.arc(-12, -2 + wobble * 0.2, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#0b1020';
+      ctx.fillRect(-12, -4 + wobble * 0.2, 24, 10);
+      ctx.restore();
+    };
+
+    return {
+      idle: this.createFrames(6, (ctx, t) => drawPose(ctx, t, 'idle')),
+      run: this.createFrames(8, (ctx, t) => drawPose(ctx, t, 'run')),
+      attack: this.createFrames(6, (ctx, t) => drawPose(ctx, t, 'attack')),
+      death: this.createFrames(4, (ctx, t) => drawPose(ctx, t, 'death')),
+    };
+  }
+
+  buildKleer() {
+    const drawPose = (ctx, phase, mode = 'run') => {
+      const stride = Math.sin(phase * Math.PI * 2) * (mode === 'idle' ? 6 : 14);
+      this.drawShadow(ctx, 28, 0.28);
+      ctx.save();
+      const boneGrad = ctx.createLinearGradient(0, -30, 0, 34);
+      boneGrad.addColorStop(0, '#f8fafc');
+      boneGrad.addColorStop(1, '#cbd5e1');
+      ctx.fillStyle = boneGrad;
+      ctx.beginPath();
+      ctx.ellipse(0, stride * 0.15, 28, 32, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#b45309';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(-18, -20 + stride * 0.2);
+      ctx.quadraticCurveTo(0, -34 + stride * 0.2, 18, -20 + stride * 0.2);
+      ctx.stroke();
+
+      ctx.fillStyle = '#9ca3af';
+      const clawOffset = 14 + (mode === 'attack' ? 6 : 0);
+      ctx.beginPath();
+      ctx.moveTo(-14 - stride * 0.6, clawOffset + stride * 0.1);
+      ctx.lineTo(-28 - stride * 0.5, clawOffset + 14);
+      ctx.lineTo(-6 - stride * 0.3, clawOffset + 12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(14 + stride * 0.6, clawOffset + stride * 0.1);
+      ctx.lineTo(28 + stride * 0.5, clawOffset + 14);
+      ctx.lineTo(6 + stride * 0.3, clawOffset + 12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    };
+
+    return {
+      idle: this.createFrames(6, (ctx, t) => drawPose(ctx, t, 'idle')),
+      run: this.createFrames(8, (ctx, t) => drawPose(ctx, t, 'run')),
+      attack: this.createFrames(6, (ctx, t) => drawPose(ctx, t, 'attack')),
+      death: this.createFrames(4, (ctx, t) => drawPose(ctx, t, 'death')),
+    };
+  }
+
+  buildWerebull() {
+    const drawPose = (ctx, phase, mode = 'run') => {
+      const charge = Math.sin(phase * Math.PI * 2) * (mode === 'idle' ? 4 : 10);
+      this.drawShadow(ctx, 32, 0.26);
+      ctx.save();
+      ctx.translate(0, mode === 'attack' ? 2 : 0);
+      const hideGrad = ctx.createLinearGradient(0, -32, 0, 38);
+      hideGrad.addColorStop(0, '#7c2d12');
+      hideGrad.addColorStop(1, '#d97706');
+      ctx.fillStyle = hideGrad;
+      ctx.beginPath();
+      ctx.ellipse(0, charge * 0.2, 34, 30, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#f3f4f6';
+      ctx.beginPath();
+      ctx.arc(0, -14 + charge * 0.25, 18, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.moveTo(-18, -2 + charge * 0.3);
+      ctx.lineTo(-30, -22 + charge * 0.3);
+      ctx.lineTo(-6, -10 + charge * 0.25);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(18, -2 + charge * 0.3);
+      ctx.lineTo(30, -22 + charge * 0.3);
+      ctx.lineTo(6, -10 + charge * 0.25);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#0ea5e9';
+      ctx.beginPath();
+      ctx.moveTo(-10 - charge * 0.3, 16);
+      ctx.lineTo(-32 - charge * 0.4, 30);
+      ctx.lineTo(-4 - charge * 0.2, 26);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(10 + charge * 0.3, 16);
+      ctx.lineTo(32 + charge * 0.4, 30);
+      ctx.lineTo(4 + charge * 0.2, 26);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    };
+
+    return {
+      idle: this.createFrames(6, (ctx, t) => drawPose(ctx, t, 'idle')),
+      run: this.createFrames(8, (ctx, t) => drawPose(ctx, t, 'run')),
+      attack: this.createFrames(6, (ctx, t) => drawPose(ctx, t, 'attack')),
+      death: this.createFrames(4, (ctx, t) => drawPose(ctx, t, 'death')),
+    };
+  }
+
+  buildHarpy() {
+    const drawPose = (ctx, phase, mode = 'run') => {
+      const flap = Math.sin(phase * Math.PI * 2) * (mode === 'idle' ? 12 : 22);
+      this.drawShadow(ctx, 24, 0.24);
+      ctx.save();
+      ctx.translate(0, -6);
+      const wingGrad = ctx.createLinearGradient(-30, 0, 30, 0);
+      wingGrad.addColorStop(0, '#fda4af');
+      wingGrad.addColorStop(1, '#ec4899');
+      ctx.fillStyle = wingGrad;
+      ctx.beginPath();
+      ctx.moveTo(-34, -4 - flap * 0.2);
+      ctx.quadraticCurveTo(-40, -20 - flap, -8, -8 - flap * 0.4);
+      ctx.quadraticCurveTo(-20, 18 + flap * 0.3, -34, 18 + flap * 0.15);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(34, -4 + flap * 0.2);
+      ctx.quadraticCurveTo(40, -20 + flap, 8, -8 + flap * 0.4);
+      ctx.quadraticCurveTo(20, 18 - flap * 0.3, 34, 18 - flap * 0.15);
+      ctx.fill();
+
+      const bodyGrad = ctx.createLinearGradient(0, -26, 0, 24);
+      bodyGrad.addColorStop(0, '#fde68a');
+      bodyGrad.addColorStop(1, '#f472b6');
+      ctx.fillStyle = bodyGrad;
+      ctx.beginPath();
+      ctx.ellipse(0, 4, 18, 26, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(0, -12, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#e5e7eb';
+      ctx.beginPath();
+      ctx.moveTo(-6, 18);
+      ctx.lineTo(-14, 34 + flap * 0.1);
+      ctx.lineTo(6, 18);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    };
+
+    return {
+      idle: this.createFrames(6, (ctx, t) => drawPose(ctx, t, 'idle')),
+      run: this.createFrames(8, (ctx, t) => drawPose(ctx, t, 'run')),
+      attack: this.createFrames(6, (ctx, t) => drawPose(ctx, t, 'attack')),
+      death: this.createFrames(4, (ctx, t) => drawPose(ctx, t, 'death')),
+    };
+  }
+
+  buildBioMech(isMajor) {
+    const drawPose = (ctx, phase, mode = 'run') => {
+      const hum = Math.sin(phase * Math.PI * 2) * (isMajor ? 6 : 4);
+      const recoil = mode === 'attack' ? 6 : 0;
+      this.drawShadow(ctx, isMajor ? 34 : 30, 0.28);
+      ctx.save();
+      const armorGrad = ctx.createLinearGradient(-32, -32, 32, 32);
+      armorGrad.addColorStop(0, isMajor ? '#991b1b' : '#1e3a8a');
+      armorGrad.addColorStop(1, isMajor ? '#f97316' : '#38bdf8');
+      ctx.fillStyle = armorGrad;
+      ctx.fillRect(-34, -32 + hum * 0.2, 68, 66);
+
+      const visorGrad = ctx.createLinearGradient(-20, -24, 20, 6);
+      visorGrad.addColorStop(0, '#0ea5e9');
+      visorGrad.addColorStop(1, '#a855f7');
+      ctx.fillStyle = visorGrad;
+      ctx.fillRect(-20, -24 + hum * 0.1, 18, 18);
+      ctx.fillRect(2, -24 + hum * 0.1, 18, 18);
+
+      ctx.fillStyle = isMajor ? '#facc15' : '#34d399';
+      ctx.fillRect(-10, 4 + hum * 0.15, 20, 28);
+
+      ctx.fillStyle = isMajor ? '#ef4444' : '#22c55e';
+      ctx.beginPath();
+      ctx.moveTo(-30, 12 + hum * 0.12);
+      ctx.lineTo(-46 - recoil, 18 + hum * 0.14);
+      ctx.lineTo(-30, 22 + hum * 0.14);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(30, 12 + hum * 0.12);
+      ctx.lineTo(46 + recoil, 18 + hum * 0.14);
+      ctx.lineTo(30, 22 + hum * 0.14);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(-24, -10 + hum * 0.1);
+      ctx.lineTo(24, -10 + hum * 0.1);
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    return {
+      idle: this.createFrames(6, (ctx, t) => drawPose(ctx, t, 'idle')),
+      run: this.createFrames(8, (ctx, t) => drawPose(ctx, t, 'run')),
+      attack: this.createFrames(6, (ctx, t) => drawPose(ctx, t, 'attack')),
+      death: this.createFrames(4, (ctx, t) => drawPose(ctx, t, 'death')),
+    };
+  }
+
+  buildFallback() {
+    const drawPose = (ctx, phase) => {
+      const wobble = Math.sin(phase * Math.PI * 2) * 6;
+      this.drawShadow(ctx, 24, 0.24);
+      ctx.fillStyle = '#94a3b8';
+      ctx.beginPath();
+      ctx.arc(0, wobble * 0.2, 26, 0, Math.PI * 2);
+      ctx.fill();
+    };
+
+    return {
+      idle: this.createFrames(6, (ctx, t) => drawPose(ctx, t)),
+      run: this.createFrames(6, (ctx, t) => drawPose(ctx, t)),
+      attack: this.createFrames(6, (ctx, t) => drawPose(ctx, t)),
+      death: this.createFrames(4, (ctx, t) => drawPose(ctx, t)),
+    };
+  }
+}
+
+const enemySpriteFactory = new EnemySpriteFactory();
+
+function getEnemyVisualKey(enemy) {
+  if (enemy.type === 'BioMech') {
+    return enemy.visualVariant === 'major' ? 'BioMech Major' : 'BioMech Minor';
+  }
+  return enemy.type;
+}
+
+function getEnemyDepthScale(enemy) {
+  const horizonRatio = activeLevel?.horizonRatio ?? 0.6;
+  const horizon = state.height * horizonRatio;
+  const depth = clamp((enemy.y - horizon) / Math.max(1, state.height - horizon), 0, 1);
+  return 0.65 + depth * 0.55;
+}
+
+function getEnemyVisualState(enemy) {
+  const now = performance.now();
+  const last = enemyMotionCache.get(enemy);
+  const moved = last ? Math.hypot(enemy.x - last.x, enemy.y - last.y) > 0.6 : false;
+  enemyMotionCache.set(enemy, { x: enemy.x, y: enemy.y });
+  const meleeThreat = !enemy.lastShot && Math.hypot(player.x - enemy.x, player.y - enemy.y) < enemy.radius + player.radius + 14;
+  const recentAttack = enemy.lastShot && now - enemy.lastShot < 450;
+  if (recentAttack || meleeThreat) return 'attack';
+  if (moved) return 'run';
+  return 'idle';
+}
+
+function drawEnemySprite(enemy, angle, timeSeconds) {
+  const visualKey = getEnemyVisualKey(enemy);
+  const frameSet = enemySpriteFactory.getFrames(visualKey);
+  const stateKey = getEnemyVisualState(enemy);
+  const depthScale = getEnemyDepthScale(enemy);
+  const base = enemyVisualBase[visualKey] ?? enemy.radius * 2;
+  const frame = enemySpriteFactory.pickFrame(frameSet[stateKey], timeSeconds, 10);
+  if (!frame) return;
+
+  const drawSize = base * depthScale;
+  ctx.save();
+  ctx.rotate(angle);
+  ctx.drawImage(frame, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
   ctx.restore();
 }
 
@@ -1777,6 +1999,7 @@ function spawnEnemy(type) {
     lastShot: 0,
     nextDive: performance.now() + 1200 + Math.random() * 1400,
     strafeDir: Math.random() > 0.5 ? 1 : -1,
+    visualVariant: type === 'BioMech' && Math.random() > 0.55 ? 'major' : 'minor',
   });
 }
 
@@ -2643,9 +2866,6 @@ function handlePointerLockChange() {
   const locked = document.pointerLockElement === canvas;
   if (gameRoot) {
     gameRoot.classList.toggle('locked', locked);
-  }
-  if (locked) {
-    centerCrosshair();
   }
   refreshCrosshairVisibility();
 }
